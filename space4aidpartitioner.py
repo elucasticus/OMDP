@@ -221,7 +221,7 @@ class SPACE4AIDPartitioner():
         
         print("\n")        
         print("             " + "  Done! Model partitioned at layers: {}\n".format(partitioned_layers))
-        return found_partitions
+        return partitioned_layers
         # ------------------------------------------------------
         
         # ln = ln + 1
