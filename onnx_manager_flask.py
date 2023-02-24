@@ -14,6 +14,8 @@ import os
 import csv
 from onnx_first_inference import onnx_run_first_half
 import pickle
+from tensorflow.keras.preprocessing.image import load_img
+from tensorflow.keras.preprocessing.image import img_to_array
 import onnxruntime
 #from onnxruntime.quantization import quantize_static, quantize_dynamic, CalibrationDataReader, QuantFormat, QuantType
 from onnx_opcounter import calculate_params, calculate_macs
@@ -28,6 +30,9 @@ from onnx_tool import create_ndarray_f32
 
 #Dependencies for flask
 import requests
+
+#Missing dependences
+from onnx_utils import plot_results
 
 # Prefer ACL Execution Provider over CPU Execution Provider
 ACL_EP_list       = ['ACLExecutionProvider']
@@ -147,6 +152,7 @@ Examples:
   parser.add_argument('--filter_layers', nargs='+', help='Specify an array of LayerNames to be filtered.')
   parser.add_argument('--filter_nr_nodes', help='Specify the maximum Nr of Nodes per Split to be filtered.')
   parser.add_argument('--server_url', help='Select the Address of the Flask Server')
+  parser.add_argument('--plot_res', help='Select whether or no plot the results')
   args=parser.parse_args()
   print ("Operation: " + args.operation)
 
@@ -207,7 +213,8 @@ Examples:
                             args.device_type,
                             args.server_url,
                             args.xml_file,
-                            args.warmup_time)
+                            args.warmup_time,
+                            args.plot_res)
   elif args.operation == "run_profiler":
       onnx_run_profiler(args.onnx_file, 
                         args.onnx_path, 
@@ -223,8 +230,8 @@ Examples:
                         args.xml_file)
   elif args.operation == "plot_results":
       plot_results(args.results_file)
-  #elif args.operation == "quant_model":
-      #quantize_dynamic(args.onnx_file, 'quant_'+args.onnx_file, weight_type=args.quant_type)
+  elif args.operation == "quant_model":
+      quantize_dynamic(args.onnx_file, 'quant_'+args.onnx_file, weight_type=args.quant_type)
   elif args.operation == "show_graph":
       onnx_show_graph(args.onnx_file)
   elif args.operation == "prep_ml_dataset":
@@ -371,7 +378,7 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
     
 def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_size_x, img_size_y, is_grayscale, 
                           repetitions, exec_provider, 
-                          device_type, server_url, xml_file = None, warmupTime = None):
+                          device_type, server_url, xml_file = None, warmupTime = None, plot_res = False):
   '''
   Run a complete cycle of inference for every splitted pair of models in the folder passed as argument, save the results in a CSV File and Plot the results.
   To run a complete cycle means to run the first half of the model locally, get the results, load them on the cloud, execute 
@@ -779,8 +786,9 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
                           "AvgError": str(avgInfError) if i==1 else '', "AvgAbsError": str(avgAbsInfError) if i==1 else ''})
 
   #TESTING
-  #print("Plotting the results..")
-  #plot_results(AVG_RESULTS_CSV_FILE)
+  if plot_res:
+    print("Plotting the results..")
+    plot_results(AVG_RESULTS_CSV_FILE)
 
 def onnx_run_profiler(onnx_file, onnx_path, image_file, image_batch, img_size_x, img_size_y, is_grayscale, 
                           repetitions, exec_provider, device_type, server_url, xml_file = None):
