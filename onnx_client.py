@@ -11,10 +11,11 @@ def main():
     # arrival_time = response["arrival_time"]
     # uploading_time = arrival_time - departure_time
     # print(uploading_time)
+    onnx_path = "partitions"
+    split_layer = "sequential/mobilenetv2_1.00_160/block_13_project_BN/FusedBatchNormV3:0"
+    split_layer = split_layer.replace("/", '-').replace(":", '_')
+    onnx_run_complete(onnx_path, split_layer, None, "images/mobilenet", 160, 160, False , "CPU", "CPU", "http://127.0.0.1:5000/checkpoint")
 
-    onnx_file = "cifar10.onnx"
-    onnx_path = "cifar10"
-    onnx_run_all_complete(onnx_file, onnx_path, None, "images", 32, 32, False, 2, "CPU", None, "http://127.0.0.1:5000/onnx")
 
 if __name__ == "__main__":
     main()
