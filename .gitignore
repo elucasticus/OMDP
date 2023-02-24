@@ -7,3 +7,4 @@ mobilenet.onnx
 *.npy
 splitted_models
 partitions
+temp
