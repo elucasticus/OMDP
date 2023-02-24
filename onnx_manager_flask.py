@@ -14,8 +14,6 @@ import os
 import csv
 from onnx_first_inference import onnx_run_first_half
 import pickle
-from tensorflow.keras.preprocessing.image import load_img
-from tensorflow.keras.preprocessing.image import img_to_array
 import onnxruntime
 #from onnxruntime.quantization import quantize_static, quantize_dynamic, CalibrationDataReader, QuantFormat, QuantType
 from onnx_opcounter import calculate_params, calculate_macs
@@ -230,8 +228,6 @@ Examples:
                         args.xml_file)
   elif args.operation == "plot_results":
       plot_results(args.results_file)
-  elif args.operation == "quant_model":
-      quantize_dynamic(args.onnx_file, 'quant_'+args.onnx_file, weight_type=args.quant_type)
   elif args.operation == "show_graph":
       onnx_show_graph(args.onnx_file)
   elif args.operation == "prep_ml_dataset":
