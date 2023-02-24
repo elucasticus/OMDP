@@ -8,7 +8,7 @@ def main():
     partitioner = SPACE4AIDPartitioner(onnx_file, partitionable_model)
     num_partitions = 10
     split_layers = partitioner.get_partitions(num_partitions=num_partitions)
-    with open("split_layers", "wb") as fp:   #Pickling
+    with open("temp/split_layers", "wb") as fp:   #Pickling
         pickle.dump(split_layers, fp)
 
     #with open("test", "rb") as fp:   # Unpickling
