@@ -9,6 +9,7 @@ import onnx
 
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
+    onnx_model = onnx.load(onnx_file)
 
     @app.route("/")
     def root():
@@ -31,7 +32,6 @@ def run(onnx_file, EP_list, device):
         onnx_model_file = "temp/third_half.onnx"
         input_names = [data["splitLayer"]]
         output_names = []
-        onnx_model = onnx.load(onnx_file)
         for i in range(len(onnx_model.graph.output)):
             output_names.append(onnx_model.graph.output[i].name)
         onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
