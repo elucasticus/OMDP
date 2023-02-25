@@ -1,7 +1,7 @@
 from flask import Flask, request
 import requests
 import time
-from onnx_second_inference_flask import onnx_search_and_run_second_half
+from onnx_second_inference_flask import onnx_extract_and_run_second_half
 from onnx_third_inference_flask import onnx_search_and_run_third_half
 import numpy as np
 import json
@@ -73,16 +73,11 @@ def run(onnx_file, EP_list, device):
             #Find the second split point 
             name = split_layers[i]
             print("##### Output layer: %s #####" %name)
-
-            #Split the model to obtain the second submodel
-            print("Extracting the submodel..")
             output_names = [name]
             try:
-                onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
-                print("Submodel extracted!")
-
-                #Compute the time needed to run the second submodel
-                up_data = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
+                ##Split the model to obtain the second submodel and compute the time needed to run it
+                up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
+                                                           onnx_model_file, data, None, EP_list, device)
                 np.save("input_check", up_data["result"])
                 del up_data["result"]
                 up_data["splitLayer"] = name
@@ -94,19 +89,15 @@ def run(onnx_file, EP_list, device):
                 #Send the Intermediate Tensors to the server
                 print("Sending the intermediate tensors to the server...")
                 server_url = "http://127.0.0.1:3000/endpoint"
-                response = requests.post(server_url, files=files).json()
+                response = requests.post(server_url, files=files).json()                
             except:
                 print("Cannot extract the submodel!")
         
         #Trivial case: we don't rely on the server
         print("##### Trivial case #####")
         output_names = end_names
-        print("Extracting the submodel..")
-        onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
-        print("Submodel extracted!")
-
-        #Compute the time needed to run the submodel
-        returnData = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
+        returnData = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
+                                                        onnx_model_file, data, None, EP_list, device)
 
         #Return the results
         returnData["Outcome"] = "Success"
