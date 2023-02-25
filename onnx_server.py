@@ -60,7 +60,14 @@ def run(onnx_file, EP_list, device):
         data = json.load(request.files['data'])
         data["result"] = np.load(request.files['document']).tolist()
 
+        #Compute arrival time 
+        arrival_time = time.time()
+
+        #Extract the input layer and its index into the list of possible splits
         input_layer_index = split_layers.index(data["splitLayer"])
+        input_names = [data["splitLayer"]]
+
+        onnx_model_file = "temp/second_half.onnx"
 
         for i in range(input_layer_index + 1, len(split_layers)):
             #Find the second split point 
@@ -69,8 +76,6 @@ def run(onnx_file, EP_list, device):
 
             #Split the model to obtain the second submodel
             print("Extracting the submodel..")
-            onnx_model_file = "temp/second_half.onnx"
-            input_names = [data["splitLayer"]]
             output_names = [name]
             try:
                 onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
@@ -92,7 +97,22 @@ def run(onnx_file, EP_list, device):
                 response = requests.post(server_url, files=files).json()
             except:
                 print("Cannot extract the submodel!")
-        return response
+        
+        print("##### Trivial case #####")
+        output_names = end_names
+        print("Extracting the submodel..")
+        onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+        print("Submodel extracted!")
+
+        #Compute the time needed to run the third submodel
+        returnData = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
+
+        #Return the results
+        returnData["Outcome"] = "Success"
+        returnData["arrival_time"] = arrival_time
+        returnData["result"] = returnData["result"].tolist()
+
+        return returnData
     
     return app
 
