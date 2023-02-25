@@ -8,6 +8,7 @@ import json
 import onnx
 import pickle
 import csv
+from onnx_utils import onnx_get_true_inputs
 
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
@@ -65,8 +66,12 @@ def run(onnx_file, EP_list, device):
         arrival_time = time.time()
 
         #Extract the input layer and its index into the list of possible splits
-        input_layer_index = split_layers.index(data["splitLayer"])
-        input_names = [data["splitLayer"]]
+        if data["splitLayer"] == "NO_SPLIT":
+            input_names = onnx_get_true_inputs(onnx_model)
+            input_layer_index = -1
+        else:
+            input_names = [data["splitLayer"]]
+            input_layer_index = split_layers.index(data["splitLayer"])
 
         onnx_model_file = "temp/second_half.onnx"
 
