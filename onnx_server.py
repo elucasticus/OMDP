@@ -7,6 +7,7 @@ import numpy as np
 import json
 import onnx
 import pickle
+import csv
 
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
@@ -69,40 +70,65 @@ def run(onnx_file, EP_list, device):
 
         onnx_model_file = "temp/second_half.onnx"
 
-        for i in range(input_layer_index + 1, len(split_layers)):
-            #Find the second split point 
-            name = split_layers[i]
-            print("##### Output layer: %s #####" %name)
-            output_names = [name]
-            try:
-                ##Split the model to obtain the second submodel and compute the time needed to run it
-                up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
-                                                           onnx_model_file, data, None, EP_list, device)
-                np.save("input_check", up_data["result"])
-                del up_data["result"]
-                up_data["splitLayer"] = name
-                files = [
-                    ('document', ("input_check.npy", open("input_check.npy", 'rb'), 'application/octet')),
-                    ('data', ('up_data', json.dumps(up_data), 'application/json')),
-                ]
+        with open("checkpoint_results.csv", "w", newline="") as csvfile:
+            fields = ["splitPoint1", "splitPoint2", "execTime1", "execTime2", "networkingTime"]
+            writer = csv.DictWriter(csvfile, fieldnames=fields)
+            writer.writeheader()
+            row = {"splitPoint1": data["splitLayer"],
+                   "splitPoint2": "",
+                   "execTime1":0.,
+                   "execTime2":0.,
+                   "networkingTime": 0.}
+            for i in range(input_layer_index + 1, len(split_layers)):
+                #Find the second split point 
+                name = split_layers[i]
+                print("##### Output layer: %s #####" %name)
+                output_names = [name]
+                try:
+                    ##Split the model to obtain the second submodel and compute the time needed to run it
+                    up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
+                                                            onnx_model_file, data, None, EP_list, device)
+                    np.save("input_check", up_data["result"])
+                    del up_data["result"]
+                    up_data["splitLayer"] = name
+                    up_data["execTime1"] = up_data["execTime2"]
+                    files = [
+                        ('document', ("input_check.npy", open("input_check.npy", 'rb'), 'application/octet')),
+                        ('data', ('up_data', json.dumps(up_data), 'application/json')),
+                    ]
 
-                #Send the Intermediate Tensors to the server
-                print("Sending the intermediate tensors to the server...")
-                server_url = "http://127.0.0.1:3000/endpoint"
-                response = requests.post(server_url, files=files).json()                
-            except:
-                print("Cannot extract the submodel!")
-        
-        #Trivial case: we don't rely on the server
-        print("##### Trivial case #####")
-        output_names = end_names
-        returnData = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
-                                                        onnx_model_file, data, None, EP_list, device)
+                    #Send the Intermediate Tensors to the server
+                    print("Sending the intermediate tensors to the server...")
+                    server_url = "http://127.0.0.1:3000/endpoint"
+                    departure_time = time.time()
+                    response = requests.post(server_url, files=files).json() 
+                    
+                    #Save the results
+                    row["splitPoint2"] = split_layers[i]
+                    row["execTime1"] = response["execTime1"]
+                    row["execTime2"] = response["execTime2"] 
+                    row["networkingTime"] = response["arrival_time"] - departure_time
+                    writer.writerow(row)              
+                except:
+                    print("Cannot extract the submodel!")
+            
+            #Trivial case: we don't rely on the server
+            print("##### Trivial case #####")
+            output_names = end_names
+            returnData = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
+                                                            onnx_model_file, data, None, EP_list, device)
 
-        #Return the results
-        returnData["Outcome"] = "Success"
-        returnData["arrival_time"] = arrival_time
-        returnData["result"] = returnData["result"].tolist()
+            #Save the results 
+            row["splitPoint2"] = "end"
+            row["execTime1"] = returnData["execTime2"]
+            row["execTime2"] = 0.
+            row["networkingTime"] = 0.
+            writer.writerow(row)
+
+            #Return the results
+            returnData["Outcome"] = "Success"
+            returnData["arrival_time"] = arrival_time
+            returnData["result"] = returnData["result"].tolist()
 
         return returnData
     
