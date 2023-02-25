@@ -98,13 +98,14 @@ def run(onnx_file, EP_list, device):
             except:
                 print("Cannot extract the submodel!")
         
+        #Trivial case: we don't rely on the server
         print("##### Trivial case #####")
         output_names = end_names
         print("Extracting the submodel..")
         onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
         print("Submodel extracted!")
 
-        #Compute the time needed to run the third submodel
+        #Compute the time needed to run the submodel
         returnData = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
 
         #Return the results
