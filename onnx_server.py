@@ -6,6 +6,7 @@ from onnx_third_inference_flask import onnx_search_and_run_third_half
 import numpy as np
 import json
 import onnx
+import pickle
 
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
@@ -15,6 +16,11 @@ def run(onnx_file, EP_list, device):
     end_names = []
     for i in range(len(onnx_model.graph.output)):
         end_names.append(onnx_model.graph.output[i].name)
+
+    #Load the list of the possible split points
+    with open("temp/split_layers", "rb") as fp:   # Unpickling
+        split_layers = pickle.load(fp)
+ 
 
     @app.route("/")
     def root():
@@ -54,29 +60,38 @@ def run(onnx_file, EP_list, device):
         data = json.load(request.files['data'])
         data["result"] = np.load(request.files['document']).tolist()
 
-        #TEST
-        name = "sequential/mobilenetv2_1.00_160/block_15_add/add:0"
+        input_layer_index = split_layers.index(data["splitLayer"])
 
-        #Split the model to obtain the second submodel
-        onnx_model_file = "temp/second_half.onnx"
-        input_names = [data["splitLayer"]]
-        output_names = [name]
-        onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+        for i in range(input_layer_index + 1, len(split_layers)):
+            #Find the second split point 
+            name = split_layers[i]
+            print("##### Output layer: %s #####" %name)
 
-        #Compute the time needed to run the second submodel
-        data = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
-        np.save("input_check", data["result"])
-        del data["result"]
-        data["splitLayer"] = name
-        files = [
-            ('document', ("input_check.npy", open("input_check.npy", 'rb'), 'application/octet')),
-            ('data', ('data', json.dumps(data), 'application/json')),
-        ]
+            #Split the model to obtain the second submodel
+            print("Extracting the submodel..")
+            onnx_model_file = "temp/second_half.onnx"
+            input_names = [data["splitLayer"]]
+            output_names = [name]
+            try:
+                onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+                print("Submodel extracted!")
 
-        #Send the Intermediate Tensors to the server
-        print("Sending the intermediate tensors to the server...")
-        server_url = "http://127.0.0.1:3000/endpoint"
-        response = requests.post(server_url, files=files).json()
+                #Compute the time needed to run the second submodel
+                up_data = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
+                np.save("input_check", up_data["result"])
+                del up_data["result"]
+                up_data["splitLayer"] = name
+                files = [
+                    ('document', ("input_check.npy", open("input_check.npy", 'rb'), 'application/octet')),
+                    ('data', ('up_data', json.dumps(up_data), 'application/json')),
+                ]
+
+                #Send the Intermediate Tensors to the server
+                print("Sending the intermediate tensors to the server...")
+                server_url = "http://127.0.0.1:3000/endpoint"
+                response = requests.post(server_url, files=files).json()
+            except:
+                print("Cannot extract the submodel!")
         return response
     
     return app
