@@ -8,7 +8,44 @@ import json
 import onnx
 import pickle
 import csv
-from onnx_utils import onnx_get_true_inputs
+
+def isNodeAnInitializer(onnx_model, node):
+  '''
+  Check if the node passed as argument is an initializer in the network.
+
+  :param onnx_model: the already imported ONNX Model
+  :param node: node's name
+  :returns: True if the node is an initializer, False otherwise
+  '''
+  # Check if input is not an initializer, if so ignore it
+  for i in range(len(onnx_model.graph.initializer)):
+    if node == onnx_model.graph.initializer[i].name:
+      return True
+
+  return False
+
+def onnx_get_true_inputs(onnx_model):
+  '''
+  Get the list of TRUE inputs of the ONNX model passed as argument. 
+  The reason for this is that sometimes "onnx.load" interprets some of the static initializers 
+  (such as weights and biases) as inputs, therefore showing a large list of inputs and misleading for instance
+  the fuctions used for splitting.
+
+  :param onnx_model: the already imported ONNX Model
+  :returns: a list of the true inputs
+  '''
+  input_names = []
+
+  # Iterate all inputs and check if they are valid
+  for i in range(len(onnx_model.graph.input)):
+    nodeName = onnx_model.graph.input[i].name
+    # Check if input is not an initializer, if so ignore it
+    if isNodeAnInitializer(onnx_model, nodeName):
+      continue
+    else:
+      input_names.append(nodeName)
+  
+  return input_names
 
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
