@@ -32,6 +32,9 @@ import requests
 #Missing dependences
 from onnx_utils import plot_results
 
+#Additional dependencies
+from onnx_helper import HiddenPrints
+
 # Prefer ACL Execution Provider over CPU Execution Provider
 ACL_EP_list       = ['ACLExecutionProvider']
 # Prefer OpenVINO Execution Provider over CPU Execution Provider
@@ -299,7 +302,8 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
   
   # Only proceed if an onnx file is found for this layer
   if onnx_file != None:
-    print("\n ###Start the 1st Inference Execution Locally\n")
+    print("\n##########   split_layer: %s   ##########" %split_layer)
+    print("### Start the 1st Inference Execution Locally ###")
 
     #Load the Onnx Model    --    Got to do it just to have the input tensor shape for data_processing
     model_onnx = load_onnx_model(onnx_file)
@@ -309,7 +313,7 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
 
     # Check if we have to SKIP the 1st Inference Execution Locally
     if split_layer == "NO_SPLIT" or split_layer == "PROFILING":
-      print("\n ###SKIP the 1st Inference Execution Locally, run directly the whole model on the Cloud..\n")
+      print("### SKIP the 1st Inference Execution Locally, run directly the whole model on the Cloud..")
       print(" Create a results.txt file with the whole image instead of the tensor..")
       data = {
         "splitLayer": "NO_SPLIT",
@@ -333,7 +337,8 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
     else:
       #Run at Inference the First part of the ONNX DNN Model (on single image OR batch)
       print("onnx_file: ", onnx_file)
-      resData, _ = onnx_run_first_half(onnx_file, inputData, True, exec_provider, device_type, profiling=True, xml_file=xml_file)       #Now getting time with profiling (20/08/22)
+      with HiddenPrints():
+        resData, _ = onnx_run_first_half(onnx_file, inputData, True, exec_provider, device_type, profiling=True, xml_file=xml_file)       #Now getting time with profiling (20/08/22)
       #I don't need to save the file since it's already saved in onnx_first_inference.py 
 
       #Save the Intermediate Tensors
@@ -360,7 +365,7 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
     #Print the results
     print("#### 1st Inference Execution Time: " + str(response["execTime1"]) + " s")
     print("#### 2nd Inference Execution Time: " + str(response["execTime2"]) + " s")
-    print("---------------------------------------------------")
+    #print("---------------------------------------------------")
     print("#### Tensor Length: " + str(response["tensorLength"]))
     print("#### 1st Inf. Tensor Save Time: " + str(response["tensorSaveTime"]) + " s")
     print("#### Networking Time: " + str(uploading_time) + " s")
@@ -424,7 +429,7 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
     with open(RESULTS_CSV_FILE2, 'w', newline='') as csvfile2:
       # Repeat the whole cycle the specified number of times
       for rep in range(0, repetitions):
-        print("##########   REPETITION #%d   ##########" %(rep + 1))
+        print("\n##########   REPETITION #%d   ##########\n" %(rep + 1))
         #fieldnames = ['SplitLayer', 'Time1', 'Time2', 'Time3', 'Time4']
         fieldnames = ['SplitLayer', '1stInfTime', '2ndInfTime', 'oscarJobTime', 'kubePodTime', 
                       'tensorSaveTime', 'tensorLoadTime', 'tensorLength', 'networkingTime']
