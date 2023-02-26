@@ -8,3 +8,4 @@ mobilenet.onnx
 splitted_models
 partitions
 temp
+resnet101.onnx
