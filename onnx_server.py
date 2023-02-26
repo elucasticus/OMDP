@@ -116,7 +116,7 @@ def run(onnx_file, EP_list, device):
         onnx_model_file = "temp/second_half.onnx"
 
         results_file = data["splitLayer"].replace("/", '-').replace(":", '_') + ".csv"
-        with open(results_file, "w", newline="") as csvfile:
+        with open(results_file, "a", newline="") as csvfile:
             fields = ["splitPoint1", "splitPoint2", "execTime1", "execTime2", "networkingTime"]
             writer = csv.DictWriter(csvfile, fieldnames=fields)
             writer.writeheader()
