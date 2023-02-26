@@ -80,7 +80,10 @@ def run(onnx_file, EP_list, device):
 
         #Split the model to obtain the third submodel
         onnx_model_file = "temp/third_half.onnx"
-        input_names = [data["splitLayer"]]
+        if data["splitLayer"] == "NO_SPLIT":
+            input_names = onnx_get_true_inputs(onnx_model)
+        else:
+            input_names = [data["splitLayer"]]
         output_names = end_names
         onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
 
