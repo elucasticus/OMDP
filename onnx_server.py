@@ -79,7 +79,7 @@ def run(onnx_file, EP_list, device):
 
     @app.route("/endpoint", methods=["POST", "GET"])
     def endpoint():
-        global onnx_model, end_names
+        global onnx_model, end_names, split_layers
 
         #Receive the incoming data
         data = json.load(request.files['data'])
