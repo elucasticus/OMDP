@@ -419,10 +419,11 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   while (time.perf_counter() - warmupStart) < int(warmupTime):
     _, _ = onnx_run_first_half(onnx_file, inputData, True, exec_provider, device_type, profiling=False, xml_file=xml_file)
 
-  # Get the Inference Time of each layer (it can be also a sequence of nodes) by analyzing the profiling Table
-  '''with open("tensor_dict.pkl", "rb") as tf:
-    dictTensors = pickle.load(tf)
-  listSingleLayerInfProfiling = getSingleLayerExecutionTimeTable(model_onnx, list(dictTensors.keys()), profilingTable)'''
+  print("Sending the list with the split points to the server...")
+  with open("temp/split_layers", "rb") as fp:   # Unpickling
+    up_layers = pickle.load(fp)
+  response = requests.post("http://127.0.0.1:5000/split_layers", json={"split_layers": up_layers}).json()
+  print(response["Outcome"])
 
   #Open an cvs file to save the results
   with open(RESULTS_CSV_FILE, 'w', newline='') as csvfile:

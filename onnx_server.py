@@ -50,6 +50,7 @@ def onnx_get_true_inputs(onnx_model):
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
 
+    global onnx_model, end_names, split_layers
     #Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
     end_names = []
@@ -57,9 +58,15 @@ def run(onnx_file, EP_list, device):
         end_names.append(onnx_model.graph.output[i].name)
 
     #Load the list of the possible split points
-    with open("temp/split_layers", "rb") as fp:   # Unpickling
-        split_layers = pickle.load(fp)
+    #with open("temp/split_layers", "rb") as fp:   # Unpickling
+    #    split_layers = pickle.load(fp)
+    split_layers = []
  
+    @app.route("/split_layers", methods=["POST", "GET"])
+    def get_split_layers():
+       global split_layers
+       split_layers = request.json["split_layers"]
+       return {"Outcome": "Success!"}
 
     @app.route("/")
     def root():
@@ -71,6 +78,8 @@ def run(onnx_file, EP_list, device):
 
     @app.route("/endpoint", methods=["POST", "GET"])
     def endpoint():
+        global onnx_model, end_names
+
         #Receive the incoming data
         data = json.load(request.files['data'])
         data["result"] = np.load(request.files['document']).tolist()
@@ -98,6 +107,8 @@ def run(onnx_file, EP_list, device):
 
     @app.route("/checkpoint", methods=["POST", "GET"])
     def checkpoint():
+        global onnx_model, end_names, split_layers
+
         #Receive the incoming data
         data = json.load(request.files['data'])
         data["result"] = np.load(request.files['document']).tolist()
