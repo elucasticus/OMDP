@@ -8,6 +8,7 @@ import json
 import onnx
 import pickle
 import csv
+import os
 
 def isNodeAnInitializer(onnx_model, node):
   '''
@@ -88,13 +89,20 @@ def run(onnx_file, EP_list, device):
         arrival_time = time.time()
 
         #Split the model to obtain the third submodel
-        onnx_model_file = "temp/third_half.onnx"
         if data["splitLayer"] == "NO_SPLIT":
             input_names = onnx_get_true_inputs(onnx_model)
+            onnx_model_file = "temp/endpoint_no_split.onnx"
         else:
             input_names = [data["splitLayer"]]
+            input_layer_index = split_layers.index(data["splitLayer"])
+            onnx_model_file = "temp/endpoint_" + str(input_layer_index) + ".onnx"
+
         output_names = end_names
-        onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+        
+        if os.path.isfile(onnx_model_file):
+            print("Subomdel already extracted!")
+        else:
+            onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
 
         #Compute the time needed to run the third submodel
         returnData = onnx_search_and_run_third_half(None, onnx_model_file, data, None, EP_list, device)
