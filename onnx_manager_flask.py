@@ -419,10 +419,16 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   while (time.perf_counter() - warmupStart) < int(warmupTime):
     _, _ = onnx_run_first_half(onnx_file, inputData, True, exec_provider, device_type, profiling=False, xml_file=xml_file)
 
-  print("Sending the list with the split points to the server...")
+  print("Sending the list with the split points to the checkpoint...")
   with open("temp/split_layers", "rb") as fp:   # Unpickling
     up_layers = pickle.load(fp)
   response = requests.post("http://127.0.0.1:5000/split_layers", json={"split_layers": up_layers}).json()
+  print(response["Outcome"])
+
+  print("Sending the list with the split points to the endpoint...")
+  with open("temp/split_layers", "rb") as fp:   # Unpickling
+    up_layers = pickle.load(fp)
+  response = requests.post("http://127.0.0.1:3000/split_layers", json={"split_layers": up_layers}).json()
   print(response["Outcome"])
 
   #Open an cvs file to save the results
