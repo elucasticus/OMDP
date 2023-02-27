@@ -51,20 +51,23 @@ def onnx_get_true_inputs(onnx_model):
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
 
-    #now we will Create and configure logger 
+    #Configure the logger 
     logging.basicConfig(filename="std.log", format='%(asctime)s %(message)s', filemode='w', level=logging.INFO)
 
     global onnx_model, end_names, split_layers
+
     #Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
     end_names = []
     for i in range(len(onnx_model.graph.output)):
         end_names.append(onnx_model.graph.output[i].name)
 
-    #Load the list of the possible split points
-    #with open("temp/split_layers", "rb") as fp:   # Unpickling
-    #    split_layers = pickle.load(fp)
     split_layers = []
+
+    #Check if chache directory exists, otherwise create it
+    cache_directory_path = "cache"
+    if not os.path.isdir(cache_directory_path):
+       os.makedirs(cache_directory_path)
  
     @app.route("/split_layers", methods=["POST", "GET"])
     def get_split_layers():
@@ -95,11 +98,11 @@ def run(onnx_file, EP_list, device):
         #Split the model to obtain the third submodel
         if data["splitLayer"] == "NO_SPLIT":
             input_names = onnx_get_true_inputs(onnx_model)
-            onnx_model_file = "temp/endpoint_no_split.onnx"
+            onnx_model_file = "cache/endpoint_no_split.onnx"
         else:
             input_names = [data["splitLayer"]]
             input_layer_index = split_layers.index(data["splitLayer"])
-            onnx_model_file = "temp/endpoint_" + str(input_layer_index) + ".onnx"
+            onnx_model_file = "cache/endpoint_" + str(input_layer_index) + ".onnx"
 
         output_names = end_names
         
@@ -155,9 +158,9 @@ def run(onnx_file, EP_list, device):
 
                 #Compute the name of the file where we will export the submodel
                 if input_layer_index >= 0:
-                    onnx_model_file = "temp/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+                    onnx_model_file = "cache/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
                 else:
-                   onnx_model_file = "temp/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
+                   onnx_model_file = "cache/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
                 
                 try:
                     #We use this simple trick to "fool" onnx_search_and_run_second_half
@@ -206,7 +209,7 @@ def run(onnx_file, EP_list, device):
             #Trivial case: we don't rely on the server
             print("##### Trivial case #####")
             output_names = end_names
-            onnx_model_file = "temp/checkpoint_" + str(input_layer_index) +"_no_split.onnx"
+            onnx_model_file = "cache/checkpoint_" + str(input_layer_index) +"_no_split.onnx"
             returnData = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
                                                             onnx_model_file, data, None, EP_list, device)
 
