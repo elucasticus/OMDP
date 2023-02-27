@@ -6,7 +6,7 @@ from onnx_third_inference_flask import onnx_search_and_run_third_half
 import numpy as np
 import json
 import onnx
-import pickle
+import logging
 import csv
 import os
 
@@ -50,6 +50,9 @@ def onnx_get_true_inputs(onnx_model):
 
 def run(onnx_file, EP_list, device):
     app = Flask(__name__)
+
+    #now we will Create and configure logger 
+    logging.basicConfig(filename="std.log", format='%(asctime)s %(message)s', filemode='w', level=logging.INFO)
 
     global onnx_model, end_names, split_layers
     #Load the onnx model and extract the final output names
@@ -155,8 +158,13 @@ def run(onnx_file, EP_list, device):
                     in_data = data
                     in_data["splitLayer"] = ""
                     #Split the model to obtain the second submodel and compute the time needed to run it
-                    up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
-                                                            onnx_model_file, in_data, None, EP_list, device)
+                    try:
+                        up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
+                                                                onnx_model_file, in_data, None, EP_list, device)
+                    except:
+                       print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
+                       raise Exception("EXTRACTION FAILED")
+                    
                     np.save("input_check", up_data["result"])
                     del up_data["result"]
                     up_data["splitLayer"] = name
@@ -180,9 +188,14 @@ def run(onnx_file, EP_list, device):
                         row["networkingTime"] = response["arrival_time"] - departure_time
                         writer.writerow(row)  
                     except:
-                        print("...SUBMODEL EXTRACTED BUT ENDPOINT FAILED!")            
-                except:
-                    print("...CANNOT EXTRACT THE SUBMODEL!")
+                        print("...ENDPOINT FAILED!...")
+                        raise Exception("ENDPOINT FAILED") 
+                    
+                    logging.info(str(input_layer_index) + " to " + str(i) + ": OK")           
+                except Exception as e:
+                    error_message = str(e)
+                    print(error_message)
+                    logging.error(str(input_layer_index) + " to " + str(i) + ": " + error_message)   
             
             #Trivial case: we don't rely on the server
             print("##### Trivial case #####")
