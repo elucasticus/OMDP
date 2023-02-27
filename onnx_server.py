@@ -210,6 +210,8 @@ def run(onnx_file, EP_list, device):
             row["networkingTime"] = 0.
             writer.writerow(row)
 
+            logging.info(str(input_layer_index) + " to end: OK")
+
             #Return the results
             returnData["Outcome"] = "Success"
             returnData["arrival_time"] = arrival_time
