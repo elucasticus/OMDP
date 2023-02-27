@@ -140,12 +140,17 @@ def onnx_search_and_run_second_half(onnx_models_path, onnx_model_file, data, res
 
 def onnx_extract_and_run_second_half(onnx_file, input_names, output_names, onnx_model_file, data, 
                                      results_file, EP_list, device = None):
-  print("Extracting the submodel..")
-  try:
-    onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
-  except:
-    raise Exception("EXTRACTION FAILED")
-  print("Submodel extracted!")
+  #Extract the second submodel
+  print("Extracting the submodel...")
+  if os.path.isfile(onnx_model_file):
+    print("Subomdel already extracted!")
+  else:
+    try:
+      onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+      print("Submodel extracted!")
+    except:
+      os.remove(onnx_model_file)
+      raise Exception("EXTRACTION FAILED")
 
   #Compute the time needed to run the second submodel
   try:

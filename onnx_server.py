@@ -136,8 +136,6 @@ def run(onnx_file, EP_list, device):
             input_names = [data["splitLayer"]]
             input_layer_index = split_layers.index(data["splitLayer"])
 
-        onnx_model_file = "temp/second_half.onnx"
-
         results_file = data["splitLayer"].replace("/", '-').replace(":", '_') + ".csv"
         with open(results_file, "a", newline="") as csvfile:
             fields = ["splitPoint1", "splitPoint2", "execTime1", "execTime2", "networkingTime"]
@@ -151,8 +149,16 @@ def run(onnx_file, EP_list, device):
             for i in range(input_layer_index + 1, len(split_layers)):
                 #Find the second split point 
                 name = split_layers[i]
+                output_layer_index = split_layers.index(name)
                 print("##### Output layer: %s #####" %name)
                 output_names = [name]
+
+                #Compute the name of the file where we will export the submodel
+                if input_layer_index >= 0:
+                    onnx_model_file = "temp/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+                else:
+                   onnx_model_file = "temp/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
+                
                 try:
                     #We use this simple trick to "fool" onnx_search_and_run_second_half
                     in_data = data
@@ -200,6 +206,7 @@ def run(onnx_file, EP_list, device):
             #Trivial case: we don't rely on the server
             print("##### Trivial case #####")
             output_names = end_names
+            onnx_model_file = "temp/checkpoint_" + str(input_layer_index) +"_no_split.onnx"
             returnData = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
                                                             onnx_model_file, data, None, EP_list, device)
 
