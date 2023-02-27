@@ -426,8 +426,6 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   print(response["Outcome"])
 
   print("Sending the list with the split points to the endpoint...")
-  with open("temp/split_layers", "rb") as fp:   # Unpickling
-    up_layers = pickle.load(fp)
   response = requests.post("http://127.0.0.1:3000/split_layers", json={"split_layers": up_layers}).json()
   print(response["Outcome"])
 

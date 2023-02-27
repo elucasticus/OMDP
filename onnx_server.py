@@ -88,6 +88,7 @@ def run(onnx_file, EP_list, device):
         #Compute arrival time 
         arrival_time = time.time()
 
+        print("###### Input layer: %s ######" %data["splitLayer"])
         #Split the model to obtain the third submodel
         if data["splitLayer"] == "NO_SPLIT":
             input_names = onnx_get_true_inputs(onnx_model)
@@ -150,9 +151,12 @@ def run(onnx_file, EP_list, device):
                 print("##### Output layer: %s #####" %name)
                 output_names = [name]
                 try:
-                    ##Split the model to obtain the second submodel and compute the time needed to run it
+                    #We use this simple trick to "fool" onnx_search_and_run_second_half
+                    in_data = data
+                    in_data["splitLayer"] = ""
+                    #Split the model to obtain the second submodel and compute the time needed to run it
                     up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
-                                                            onnx_model_file, data, None, EP_list, device)
+                                                            onnx_model_file, in_data, None, EP_list, device)
                     np.save("input_check", up_data["result"])
                     del up_data["result"]
                     up_data["splitLayer"] = name
@@ -166,16 +170,19 @@ def run(onnx_file, EP_list, device):
                     print("Sending the intermediate tensors to the server...")
                     server_url = "http://127.0.0.1:3000/endpoint"
                     departure_time = time.time()
-                    response = requests.post(server_url, files=files).json() 
-                    
-                    #Save the results
-                    row["splitPoint2"] = split_layers[i]
-                    row["execTime1"] = response["execTime1"]
-                    row["execTime2"] = response["execTime2"] 
-                    row["networkingTime"] = response["arrival_time"] - departure_time
-                    writer.writerow(row)              
+                    try:
+                        response = requests.post(server_url, files=files).json() 
+
+                        #Save the results
+                        row["splitPoint2"] = split_layers[i]
+                        row["execTime1"] = response["execTime1"]
+                        row["execTime2"] = response["execTime2"] 
+                        row["networkingTime"] = response["arrival_time"] - departure_time
+                        writer.writerow(row)  
+                    except:
+                        print("...SUBMODEL EXTRACTED BUT ENDPOINT FAILED!")            
                 except:
-                    print("Cannot extract the submodel!")
+                    print("...CANNOT EXTRACT THE SUBMODEL!")
             
             #Trivial case: we don't rely on the server
             print("##### Trivial case #####")
