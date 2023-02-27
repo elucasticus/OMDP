@@ -141,11 +141,17 @@ def onnx_search_and_run_second_half(onnx_models_path, onnx_model_file, data, res
 def onnx_extract_and_run_second_half(onnx_file, input_names, output_names, onnx_model_file, data, 
                                      results_file, EP_list, device = None):
   print("Extracting the submodel..")
-  onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+  try:
+    onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
+  except:
+    raise Exception("EXTRACTION FAILED")
   print("Submodel extracted!")
 
   #Compute the time needed to run the second submodel
-  return onnx_search_and_run_second_half(None, onnx_model_file, data, results_file, EP_list, device)
+  try:
+    return onnx_search_and_run_second_half(None, onnx_model_file, data, results_file, EP_list, device)
+  except:
+    raise Exception("SUBMODEL RUN FAILED")
 
 class NumpyArrayEncoder(JSONEncoder):
     def default(self, obj):

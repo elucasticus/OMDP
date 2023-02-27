@@ -161,9 +161,9 @@ def run(onnx_file, EP_list, device):
                     try:
                         up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
                                                                 onnx_model_file, in_data, None, EP_list, device)
-                    except:
+                    except Exception as e:
                        print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
-                       raise Exception("EXTRACTION FAILED")
+                       raise e
                     
                     np.save("input_check", up_data["result"])
                     del up_data["result"]
