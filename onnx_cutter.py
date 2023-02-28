@@ -3,10 +3,10 @@ import onnx
 import pickle
 
 def main():
-    onnx_file = "resnet101.onnx"
-    partitionable_model = "onnx_models/resnet101"
+    onnx_file = "mobilenet.onnx"
+    partitionable_model = "onnx_models/mobilenet"
     partitioner = SPACE4AIDPartitioner(onnx_file, partitionable_model)
-    num_partitions = 20
+    num_partitions = 10
     split_layers = partitioner.get_partitions(num_partitions=num_partitions)
     with open("temp/split_layers", "wb") as fp:   #Pickling
         pickle.dump(split_layers, fp)

@@ -48,11 +48,11 @@ def onnx_get_true_inputs(onnx_model):
   
   return input_names
 
-def run(onnx_file, EP_list, device):
+def run(onnx_file, server_url, log_file, EP_list, device):
     app = Flask(__name__)
 
     #Configure the logger 
-    logging.basicConfig(filename="std.log", format='%(asctime)s %(message)s', filemode='w', level=logging.INFO)
+    logging.basicConfig(filename=log_file, format='%(asctime)s %(message)s', filemode='w', level=logging.INFO)
 
     global onnx_model, end_names, split_layers
 
@@ -73,7 +73,14 @@ def run(onnx_file, EP_list, device):
     def get_split_layers():
        global split_layers
        split_layers = request.json["split_layers"]
-       return {"Outcome": "Success!"}
+       if server_url == "":
+        print("Endpoint reached!")
+        return {"Outcome": "Success!"}
+       else:
+        url = server_url + "/split_layers"
+        print("Uploading to %s" %url)
+        response = requests.post(url, json={"split_layers": split_layers}).json()
+        return {"Outcome": response["Outcome"]}
 
     @app.route("/")
     def root():
@@ -185,10 +192,10 @@ def run(onnx_file, EP_list, device):
 
                     #Send the Intermediate Tensors to the server
                     print("Sending the intermediate tensors to the server...")
-                    server_url = "http://127.0.0.1:3000/endpoint"
                     departure_time = time.time()
                     try:
-                        response = requests.post(server_url, files=files).json() 
+                        url = server_url + "/endpoint"
+                        response = requests.post(url, files=files).json() 
 
                         #Save the results
                         row["splitPoint2"] = split_layers[i]

@@ -425,10 +425,6 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   response = requests.post("http://127.0.0.1:5000/split_layers", json={"split_layers": up_layers}).json()
   print(response["Outcome"])
 
-  print("Sending the list with the split points to the endpoint...")
-  response = requests.post("http://127.0.0.1:3000/split_layers", json={"split_layers": up_layers}).json()
-  print(response["Outcome"])
-
   #Open an cvs file to save the results
   with open(RESULTS_CSV_FILE, 'w', newline='') as csvfile:
     with open(RESULTS_CSV_FILE2, 'w', newline='') as csvfile2:
