@@ -93,6 +93,37 @@ class SPACE4AIDPartitioner():
         shape_info_dict_sorted = dict(sorted(shape_info_dict.items(), key=lambda item: item[1]))
 
         return shape_info_dict_sorted
+    
+    def _get_ordered_nodes(self, onnx_model):
+        shape_info = onnx.shape_inference.infer_shapes(onnx_model)
+        shape_info_dict = {}
+        output_nodes = [node.name for node in onnx_model.graph.output]
+        for info in shape_info.graph.value_info:
+            info_dict = MessageToDict(info)
+            node_name = info_dict['name']
+            # Do not consider output nodes
+            if node_name in output_nodes:
+                continue
+            # Do not consider activation nodes TODO: to be double checked 
+            node_type = self._get_node_type(
+                onnx_model=onnx_model, node_name=node_name)
+            if self._node_is_activation(node_type):
+                continue
+            # Do not consider nodes with no shape 
+            # (NOTE: this is only for this implementation)
+            if 'shape' in info_dict['type']['tensorType'].keys():
+                shape = info_dict['type']['tensorType']['shape']
+                if not shape: 
+                    continue
+            else:
+                continue
+            
+            dims = [int(dim['dimValue']) for dim in shape['dim'] if 'dimValue' in dim]
+            num_pixels = np.prod(dims)
+
+            shape_info_dict[node_name] = num_pixels
+        
+        return shape_info_dict
 
     def _get_true_input(self, onnx_model):
         '''

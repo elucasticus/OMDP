@@ -1,5 +1,5 @@
 from space4aidpartitioner import SPACE4AIDPartitioner
-import onnx
+from skl2onnx.helpers.onnx_helper import load_onnx_model
 import pickle
 
 def main():
@@ -7,18 +7,20 @@ def main():
     partitionable_model = "onnx_models/resnet101"
     partitioner = SPACE4AIDPartitioner(onnx_file, partitionable_model)
     num_partitions = 20
+
+    #Generate a first partition of the model and get the split points
     split_layers = partitioner.get_partitions(num_partitions=num_partitions)
+
+    #Get an ordered list of all the possible split points
+    dictLayers = partitioner._get_ordered_nodes(load_onnx_model(onnx_file))
+    listLayers = list(dictLayers.keys())
+
+    #Rearrange the order of the list of the split points
+    split_layers = sorted(split_layers, key=listLayers.index)
+
+    #Save the list with the split points in a pickle file
     with open("temp/split_layers", "wb") as fp:   #Pickling
         pickle.dump(split_layers, fp)
-
-    #with open("test", "rb") as fp:   # Unpickling
-    #    split_layers = pickle.load(fp)
-    
-    #input_names = split_layers[3]
-    #output_names = split_layers[5] 
-    #print("input_names: %s" %input_names)
-    #print("output_names: %s" %output_names)
-    #onnx.utils.extract_model(onnx_file, partitionable_model + "/third_half.onnx", [input_names], [output_names])
 
 if __name__ == "__main__" :
     main()
