@@ -422,7 +422,11 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   print("Sending the list with the split points to the checkpoint...")
   with open("temp/split_layers", "rb") as fp:   # Unpickling
     up_layers = pickle.load(fp)
-  response = requests.post("http://127.0.0.1:5000/split_layers", json={"split_layers": up_layers}).json()
+  if "endpoint" in server_url:
+    url = server_url.replace("endpoint", "split_layers")
+  else:
+    url = server_url.replace("checkpoint", "split_layers")
+  response = requests.post(url, json={"split_layers": up_layers}).json()
   print(response["Outcome"])
 
   #Open an cvs file to save the results
