@@ -87,7 +87,14 @@ def run(onnx_file, server_url, log_file, EP_list, device):
     def clear_cached_times():
        global nextDev_times
        nextDev_times = {}
-       return {"Outcome": "Cached times cleared!"}
+       if server_url == "":             #If we have reached the end of the chain stop
+        print("Endpoint reached!")
+        return {"Outcome": "Cached times cleared!"}
+       else:                            #Else proceed recursively till we reach the end
+        url = server_url + "/next_iteration"
+        print("Uploading to %s" %url)
+        response = requests.get(url).json()
+        return {"Outcome": response["Outcome"]}
 
     @app.route("/")
     def root():
