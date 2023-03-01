@@ -162,13 +162,13 @@ def run(onnx_file, server_url, log_file, EP_list, device):
 
         results_file = data["splitLayer"].replace("/", '-').replace(":", '_') + ".csv"
         with open(results_file, "a", newline="") as csvfile:
-            fields = ["splitPoint1", "splitPoint2", "execTime1", "execTime2", "networkingTime"]
+            fields = ["splitPoint1", "splitPoint2", "1stInfTime", "2ndInfTime", "networkingTime"]
             writer = csv.DictWriter(csvfile, fieldnames=fields)
             writer.writeheader()
             row = {"splitPoint1": data["splitLayer"],
                    "splitPoint2": "",
-                   "execTime1":0.,
-                   "execTime2":0.,
+                   "1stInfTime":0.,
+                   "2ndInfTime":0.,
                    "networkingTime": 0.}
             for i in range(input_layer_index + 1, len(split_layers)):
                 #Find the second split point 
@@ -218,8 +218,8 @@ def run(onnx_file, server_url, log_file, EP_list, device):
 
                             #Save the results
                             row["splitPoint2"] = split_layers[i]
-                            row["execTime1"] = response["execTime1"]
-                            row["execTime2"] = response["execTime2"] 
+                            row["1stInfTime"] = response["execTime1"]
+                            row["2ndInfTime"] = response["execTime2"] 
                             row["networkingTime"] = response["networkingTime"]
                             writer.writerow(row)  
                         except:
@@ -229,8 +229,8 @@ def run(onnx_file, server_url, log_file, EP_list, device):
                         response = nextDev_times[split_layers[i]]
                         #Save the results
                         row["splitPoint2"] = split_layers[i]
-                        row["execTime1"] = response["execTime1"]
-                        row["execTime2"] = response["execTime2"] 
+                        row["1stInfTime"] = up_data["execTime1"]
+                        row["2ndInfTime"] = response["execTime2"] 
                         row["networkingTime"] = response["networkingTime"]
                         writer.writerow(row) 
                         
@@ -249,8 +249,8 @@ def run(onnx_file, server_url, log_file, EP_list, device):
 
             #Save the results 
             row["splitPoint2"] = "end"
-            row["execTime1"] = returnData["execTime2"]
-            row["execTime2"] = 0.
+            row["1stInfTime"] = returnData["execTime2"]
+            row["2ndInfTime"] = 0.
             row["networkingTime"] = 0.
             writer.writerow(row)
 
