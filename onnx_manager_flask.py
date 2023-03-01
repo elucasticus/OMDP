@@ -419,7 +419,8 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   while (time.perf_counter() - warmupStart) < int(warmupTime):
     _, _ = onnx_run_first_half(onnx_file, inputData, True, exec_provider, device_type, profiling=False, xml_file=xml_file)
 
-  print("Sending the list with the split points to the checkpoint...")
+  #Send the next device the list with the split points
+  print("Sending the list with the split points to the next device...")
   with open("temp/split_layers", "rb") as fp:   # Unpickling
     up_layers = pickle.load(fp)
   if "endpoint" in server_url:
@@ -435,6 +436,15 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
       # Repeat the whole cycle the specified number of times
       for rep in range(0, repetitions):
         print("\n##########   REPETITION #%d   ##########\n" %(rep + 1))
+
+        #Tell the next device to clear the eventual cached times
+        if "endpoint" in server_url:
+          url = server_url.replace("endpoint", "next_iteration")
+        else:
+          url = server_url.replace("checkpoint", "next_iteration")
+        response = requests.get(url).json()
+        print(response["Outcome"])
+
         #fieldnames = ['SplitLayer', 'Time1', 'Time2', 'Time3', 'Time4']
         fieldnames = ['SplitLayer', '1stInfTime', '2ndInfTime', 'oscarJobTime', 'kubePodTime', 
                       'tensorSaveTime', 'tensorLoadTime', 'tensorLength', 'networkingTime']

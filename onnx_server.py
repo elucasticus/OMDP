@@ -82,6 +82,12 @@ def run(onnx_file, server_url, log_file, EP_list, device):
         print("Uploading to %s" %url)
         response = requests.post(url, json={"split_layers": split_layers}).json()
         return {"Outcome": response["Outcome"]}
+       
+    @app.route("/next_iteration", methods=["GET"])
+    def clear_cached_times():
+       global nextDev_times
+       nextDev_times = {}
+       return {"Outcome": "Cached times cleared!"}
 
     @app.route("/")
     def root():
