@@ -3,10 +3,10 @@ from skl2onnx.helpers.onnx_helper import load_onnx_model
 import pickle
 
 def main():
-    onnx_file = "resnet101.onnx"
-    partitionable_model = "onnx_models/resnet101"
+    onnx_file = "mobilenet.onnx"
+    partitionable_model = "onnx_models/mobilenet"
     partitioner = SPACE4AIDPartitioner(onnx_file, partitionable_model)
-    num_partitions = 20
+    num_partitions = 10
 
     #Generate a first partition of the model and get the split points
     split_layers = partitioner.get_partitions(num_partitions=num_partitions)

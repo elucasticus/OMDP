@@ -54,7 +54,7 @@ def run(onnx_file, server_url, log_file, EP_list, device):
     #Configure the logger 
     logging.basicConfig(filename=log_file, format='%(asctime)s %(message)s', filemode='w', level=logging.INFO)
 
-    global onnx_model, end_names, split_layers
+    global onnx_model, end_names, split_layers, nextDev_times
 
     #Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
@@ -63,6 +63,7 @@ def run(onnx_file, server_url, log_file, EP_list, device):
         end_names.append(onnx_model.graph.output[i].name)
 
     split_layers = []
+    nextDev_times = {}
 
     #Check if chache directory exists, otherwise create it
     cache_directory_path = "cache"
@@ -73,10 +74,10 @@ def run(onnx_file, server_url, log_file, EP_list, device):
     def get_split_layers():
        global split_layers
        split_layers = request.json["split_layers"]
-       if server_url == "":
+       if server_url == "":             #If we have reached the end of the chain stop
         print("Endpoint reached!")
         return {"Outcome": "Success!"}
-       else:
+       else:                            #Else send the list of the split points to the next device
         url = server_url + "/split_layers"
         print("Uploading to %s" %url)
         response = requests.post(url, json={"split_layers": split_layers}).json()
@@ -129,7 +130,7 @@ def run(onnx_file, server_url, log_file, EP_list, device):
 
     @app.route("/checkpoint", methods=["POST", "GET"])
     def checkpoint():
-        global onnx_model, end_names, split_layers
+        global onnx_model, end_names, split_layers, nextDev_times
 
         #Receive the incoming data
         data = json.load(request.files['data'])
@@ -190,23 +191,36 @@ def run(onnx_file, server_url, log_file, EP_list, device):
                         ('data', ('up_data', json.dumps(up_data), 'application/json')),
                     ]
 
-                    #Send the Intermediate Tensors to the server
-                    print("Sending the intermediate tensors to the server...")
-                    departure_time = time.time()
-                    try:
-                        url = server_url + "/endpoint"
-                        response = requests.post(url, files=files).json() 
+                    if not split_layers[i] in nextDev_times:
+                        #Send the Intermediate Tensors to the server
+                        print("Sending the intermediate tensors to the server...")
+                        departure_time = time.time()
+                        try:
+                            url = server_url + "/endpoint"
+                            response = requests.post(url, files=files).json()
+                            response["networkingTime"] = response["arrival_time"] - departure_time
 
+                            #Save the inference time of the submodel on the next device for future iterations
+                            nextDev_times[split_layers[i]] = response
+
+                            #Save the results
+                            row["splitPoint2"] = split_layers[i]
+                            row["execTime1"] = response["execTime1"]
+                            row["execTime2"] = response["execTime2"] 
+                            row["networkingTime"] = response["networkingTime"]
+                            writer.writerow(row)  
+                        except:
+                            print("...ENDPOINT FAILED!...")
+                            raise Exception("ENDPOINT FAILED")
+                    else:
+                        response = nextDev_times[split_layers[i]]
                         #Save the results
                         row["splitPoint2"] = split_layers[i]
                         row["execTime1"] = response["execTime1"]
                         row["execTime2"] = response["execTime2"] 
-                        row["networkingTime"] = response["arrival_time"] - departure_time
-                        writer.writerow(row)  
-                    except:
-                        print("...ENDPOINT FAILED!...")
-                        raise Exception("ENDPOINT FAILED") 
-                    
+                        row["networkingTime"] = response["networkingTime"]
+                        writer.writerow(row) 
+                        
                     logging.info(str(input_layer_index) + " to " + str(i) + ": OK")           
                 except Exception as e:
                     error_message = str(e)
