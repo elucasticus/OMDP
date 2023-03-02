@@ -8,7 +8,8 @@ import json
 import onnx
 import logging
 import csv
-import os
+import os, shutil
+import click
 
 def isNodeAnInitializer(onnx_model, node):
   '''
@@ -48,7 +49,29 @@ def onnx_get_true_inputs(onnx_model):
   
   return input_names
 
+@click.command()
+@click.option("--onnx_file")
+@click.option("--server_url", default="")
+@click.option("--log_file", default="")
+@click.option("--EP_list", "EP_list", default=["CPUExecutionProvider"])
+@click.option("--device", default=None)
+@click.option("--port", default=5000)
+@click.option("--host", default="127.0.0.1")
+def main(onnx_file, server_url, log_file, EP_list, device, port, host):
+    shutil.rmtree("cache")
+    app = run(onnx_file, server_url, log_file, EP_list, device)
+    app.run(port=port, host=host)
+
 def run(onnx_file, server_url, log_file, EP_list, device):
+    '''
+    Use an input model OR search the correct one and run at inference the Second Half of the Splitted Model
+
+    :param onnx_file: the ONNX file to use for the inference
+    :param server_url: specifies the url of the next device on the chain. If this is the endpoint, use an empyt string
+    :param log_file: specifies the file where to save the log of the operation performed
+    :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
+    :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
+    '''
     app = Flask(__name__)
 
     #Configure the logger 
@@ -265,3 +288,5 @@ def run(onnx_file, server_url, log_file, EP_list, device):
     
     return app
 
+if __name__ == "__main__":
+    main()
