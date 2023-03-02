@@ -348,15 +348,19 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
       dictTensors[resData["splitLayer"]] = resData["result"]
       data = resData
     
+    #Save the Intermediate Tensors in a .npy file
     np.save("input", data["result"])
     del data["result"]
+    #Compute departure time
+    departure_time = time.time()
+    data["departure_time"] = departure_time
+    #Combine the .npy and the .json files
     files = [
         ('document', ("input.npy", open("input.npy", 'rb'), 'application/octet')),
         ('data', ('data', json.dumps(data), 'application/json')),
     ]
     #Send the Intermediate Tensors to the server
     print("Sending the intermediate tensors to the server...")
-    departure_time = time.time()
     response = requests.post(server_url, files=files).json()
 
     #Compute uploading time

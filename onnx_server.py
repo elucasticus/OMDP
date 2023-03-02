@@ -53,16 +53,19 @@ def onnx_get_true_inputs(onnx_model):
 @click.option("--onnx_file", help="Select the ONNX file to use for the inference")
 @click.option("--server_url", default="", help="Set the url of the next device on the chain. If this is the endpoint, use an empyt string")
 @click.option("--log_file", default="", help="Select where to save the log of the operation performed")
-@click.option("--EP_list", "EP_list", default=["CPUExecutionProvider"], help="Select the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)")
+@click.option("--EP_list", "EP_list", default="CPU", help="Select the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)")
 @click.option("--device", default=None, help="Specify the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..")
+@click.option("--threshold", default=10., help="Specify the threshold above which we skip the iteration")
 @click.option("--port", default=5000, help="Select the port where to run the flask app")
 @click.option("--host", default="127.0.0.1", help="Select where to host the flask app")
-def main(onnx_file, server_url, log_file, EP_list, device, port, host):
+def main(onnx_file, server_url, log_file, EP_list, device, threshold, port, host):
     shutil.rmtree("cache")
-    app = run(onnx_file, server_url, log_file, EP_list, device)
+    if EP_list == "CPU":
+       EP_list = ["CPUExecutionProvider"]
+    app = run(onnx_file, server_url, log_file, EP_list, device, threshold)
     app.run(port=port, host=host)
 
-def run(onnx_file, server_url, log_file, EP_list, device):
+def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     '''
     Use an input model OR search the correct one and run at inference the Second Half of the Splitted Model
 
@@ -193,76 +196,80 @@ def run(onnx_file, server_url, log_file, EP_list, device):
                    "1stInfTime":0.,
                    "2ndInfTime":0.,
                    "networkingTime": 0.}
-            for i in range(input_layer_index + 1, len(split_layers)):
-                #Find the second split point 
-                name = split_layers[i]
-                output_layer_index = split_layers.index(name)
-                print("##### Output layer: %s #####" %name)
-                output_names = [name]
+            
+            if arrival_time - data["departure_time"] < threshold:
+                for i in range(input_layer_index + 1, len(split_layers)):
+                    #Find the second split point 
+                    name = split_layers[i]
+                    output_layer_index = split_layers.index(name)
+                    print("##### Output layer: %s #####" %name)
+                    output_names = [name]
 
-                #Compute the name of the file where we will export the submodel
-                if input_layer_index >= 0:
-                    onnx_model_file = "cache/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
-                else:
-                   onnx_model_file = "cache/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
-                
-                try:
-                    #We use this simple trick to "fool" onnx_search_and_run_second_half
-                    in_data = data
-                    in_data["splitLayer"] = ""
-                    #Split the model to obtain the second submodel and compute the time needed to run it
-                    try:
-                        up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
-                                                                onnx_model_file, in_data, None, EP_list, device)
-                    except Exception as e:
-                       print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
-                       raise e
+                    #Compute the name of the file where we will export the submodel
+                    if input_layer_index >= 0:
+                        onnx_model_file = "cache/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+                    else:
+                        onnx_model_file = "cache/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
                     
-                    np.save("input_check", up_data["result"])
-                    del up_data["result"]
-                    up_data["splitLayer"] = name
-                    up_data["execTime1"] = up_data["execTime2"]
-                    files = [
-                        ('document', ("input_check.npy", open("input_check.npy", 'rb'), 'application/octet')),
-                        ('data', ('up_data', json.dumps(up_data), 'application/json')),
-                    ]
-
-                    if not split_layers[i] in nextDev_times:
-                        #Send the Intermediate Tensors to the server
-                        print("Sending the intermediate tensors to the server...")
-                        departure_time = time.time()
+                    try:
+                        #We use this simple trick to "fool" onnx_search_and_run_second_half
+                        in_data = data
+                        in_data["splitLayer"] = ""
+                        #Split the model to obtain the second submodel and compute the time needed to run it
                         try:
-                            url = server_url + "/endpoint"
-                            response = requests.post(url, files=files).json()
-                            response["networkingTime"] = response["arrival_time"] - departure_time
+                            up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, 
+                                                                    onnx_model_file, in_data, None, EP_list, device)
+                        except Exception as e:
+                            print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
+                            raise e
+                        
+                        np.save("input_check", up_data["result"])
+                        del up_data["result"]
+                        up_data["splitLayer"] = name
+                        up_data["execTime1"] = up_data["execTime2"]
+                        files = [
+                            ('document', ("input_check.npy", open("input_check.npy", 'rb'), 'application/octet')),
+                            ('data', ('up_data', json.dumps(up_data), 'application/json')),
+                        ]
 
-                            #Save the inference time of the submodel on the next device for future iterations
-                            nextDev_times[split_layers[i]] = response
+                        if not split_layers[i] in nextDev_times:
+                            #Send the Intermediate Tensors to the server
+                            print("Sending the intermediate tensors to the server...")
+                            departure_time = time.time()
+                            try:
+                                url = server_url + "/endpoint"
+                                response = requests.post(url, files=files).json()
+                                response["networkingTime"] = response["arrival_time"] - departure_time
 
+                                #Save the inference time of the submodel on the next device for future iterations
+                                nextDev_times[split_layers[i]] = response
+
+                                #Save the results
+                                row["splitPoint2"] = split_layers[i]
+                                row["1stInfTime"] = response["execTime1"]
+                                row["2ndInfTime"] = response["execTime2"] 
+                                row["networkingTime"] = response["networkingTime"]
+                                writer.writerow(row)  
+                            except:
+                                print("...ENDPOINT FAILED!...")
+                                raise Exception("ENDPOINT FAILED")
+                        else:
+                            response = nextDev_times[split_layers[i]]
                             #Save the results
                             row["splitPoint2"] = split_layers[i]
-                            row["1stInfTime"] = response["execTime1"]
+                            row["1stInfTime"] = up_data["execTime1"]
                             row["2ndInfTime"] = response["execTime2"] 
                             row["networkingTime"] = response["networkingTime"]
-                            writer.writerow(row)  
-                        except:
-                            print("...ENDPOINT FAILED!...")
-                            raise Exception("ENDPOINT FAILED")
-                    else:
-                        response = nextDev_times[split_layers[i]]
-                        #Save the results
-                        row["splitPoint2"] = split_layers[i]
-                        row["1stInfTime"] = up_data["execTime1"]
-                        row["2ndInfTime"] = response["execTime2"] 
-                        row["networkingTime"] = response["networkingTime"]
-                        writer.writerow(row) 
-                        
-                    logging.info(str(input_layer_index) + " to " + str(i) + ": OK")           
-                except Exception as e:
-                    error_message = str(e)
-                    print(error_message)
-                    logging.error(str(input_layer_index) + " to " + str(i) + ": " + error_message)   
-            
+                            writer.writerow(row) 
+                            
+                        logging.info(str(input_layer_index) + " to " + str(i) + ": OK")           
+                    except Exception as e:
+                        error_message = str(e)
+                        print(error_message)
+                        logging.error(str(input_layer_index) + " to " + str(i) + ": " + error_message)
+            else:
+               print("Networking time is too big, skipping the iteration...")   
+                
             #Trivial case: we don't rely on the server
             print("##### Trivial case #####")
             output_names = end_names
