@@ -154,6 +154,7 @@ Examples:
   parser.add_argument('--filter_nr_nodes', help='Specify the maximum Nr of Nodes per Split to be filtered.')
   parser.add_argument('--server_url', help='Select the Address of the Flask Server')
   parser.add_argument('--plot_res', help='Select whether or no plot the results')
+  parser.add_argument('--pickle_file', help='Select the pickle file where the list with the split points of the models is stored')
   args=parser.parse_args()
   print ("Operation: " + args.operation)
 
@@ -213,6 +214,7 @@ Examples:
                             exec_provider,
                             args.device_type,
                             args.server_url,
+                            args.pickle_file,
                             args.xml_file,
                             args.warmup_time,
                             args.plot_res)
@@ -379,7 +381,7 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
     
 def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_size_x, img_size_y, is_grayscale, 
                           repetitions, exec_provider, 
-                          device_type, server_url, xml_file = None, warmupTime = None, plot_res = False):
+                          device_type, server_url, pickle_file = "temp/split_layers", xml_file = None, warmupTime = None, plot_res = False):
   '''
   Run a complete cycle of inference for every splitted pair of models in the folder passed as argument, save the results in a CSV File and Plot the results.
   To run a complete cycle means to run the first half of the model locally, get the results, load them on the cloud, execute 
@@ -421,7 +423,7 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
 
   #Send the next device the list with the split points
   print("Sending the list with the split points to the next device...")
-  with open("temp/split_layers", "rb") as fp:   # Unpickling
+  with open(pickle_file, "rb") as fp:   # Unpickling
     up_layers = pickle.load(fp)
   if "endpoint" in server_url:
     url = server_url.replace("endpoint", "split_layers")
