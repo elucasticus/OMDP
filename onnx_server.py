@@ -50,13 +50,13 @@ def onnx_get_true_inputs(onnx_model):
   return input_names
 
 @click.command()
-@click.option("--onnx_file")
-@click.option("--server_url", default="")
-@click.option("--log_file", default="")
-@click.option("--EP_list", "EP_list", default=["CPUExecutionProvider"])
-@click.option("--device", default=None)
-@click.option("--port", default=5000)
-@click.option("--host", default="127.0.0.1")
+@click.option("--onnx_file", help="Select the ONNX file to use for the inference")
+@click.option("--server_url", default="", help="Set the url of the next device on the chain. If this is the endpoint, use an empyt string")
+@click.option("--log_file", default="", help="Select where to save the log of the operation performed")
+@click.option("--EP_list", "EP_list", default=["CPUExecutionProvider"], help="Select the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)")
+@click.option("--device", default=None, help="Specify the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..")
+@click.option("--port", default=5000, help="Select the port where to run the flask app")
+@click.option("--host", default="127.0.0.1", help="Select where to host the flask app")
 def main(onnx_file, server_url, log_file, EP_list, device, port, host):
     shutil.rmtree("cache")
     app = run(onnx_file, server_url, log_file, EP_list, device)
