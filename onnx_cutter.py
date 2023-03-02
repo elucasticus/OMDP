@@ -4,10 +4,10 @@ import pickle
 import click
 
 @click.command()
-@click.option("--onnx_file")
-@click.option("--output_path")
-@click.option("--num_partitions", default=10)
-@click.option("--pickle_file", default="temp/split_layers")
+@click.option("--onnx_file", help="Select the onnx file to split")
+@click.option("--output_path", help="Select the path where to place the splitted models")
+@click.option("--num_partitions", default=10, help="Select the number of split points to find")
+@click.option("--pickle_file", default="temp/split_layers", help="Select the path to the pickle file where to store the list of the split points")
 def main(onnx_file, output_path, num_partitions, pickle_file):
     partitionable_model = output_path
     partitioner = SPACE4AIDPartitioner(onnx_file, partitionable_model)
