@@ -88,7 +88,7 @@ def run(onnx_file, server_url, log_file, EP_list, device):
     split_layers = []
     nextDev_times = {}
 
-    #Check if chache directory exists, otherwise create it
+    #Check if cache directory exists, otherwise create it
     cache_directory_path = "cache"
     if not os.path.isdir(cache_directory_path):
        os.makedirs(cache_directory_path)
