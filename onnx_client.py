@@ -20,10 +20,7 @@ def main():
         up_layers = pickle.load(fp)
     response = requests.post("http://127.0.0.1:5000/split_layers", json={"split_layers": up_layers}).json()
     print(response["Outcome"])
-
-    response = requests.post("http://127.0.0.1:3000/split_layers", json={"split_layers": up_layers}).json()
-    print(response["Outcome"])
-
+    
     split_layer = up_layers[3].replace("/", '-').replace(":", '_')
     #split_layer = "NO_SPLIT"
     #onnx_file = "mobilenet.onnx"
