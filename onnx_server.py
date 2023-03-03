@@ -1,8 +1,7 @@
 from flask import Flask, request
 import requests
 import time
-from onnx_second_inference_flask import onnx_extract_and_run_second_half
-from onnx_third_inference_flask import onnx_search_and_run_third_half
+from onnx_second_inference_flask import onnx_search_and_run_second_half, onnx_extract_and_run_second_half
 import numpy as np
 import json
 import onnx
@@ -175,7 +174,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             onnx.utils.extract_model(onnx_file, onnx_model_file, input_names, output_names)
 
         # Compute the time needed to run the third submodel
-        returnData = onnx_search_and_run_third_half(None, onnx_model_file, data, None, EP_list, device)
+        returnData = onnx_search_and_run_second_half(None, onnx_model_file, data, None, EP_list, device)
 
         # Return the results
         returnData["Outcome"] = "Success"
