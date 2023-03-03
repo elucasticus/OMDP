@@ -46,7 +46,7 @@ class CsvHandler:
     def reorder(self):
         order = f7(self.df["splitPoint2"].tolist())
         df = pd.read_csv(self.output_file)
-        df = df.set_index("splitPoint2").reindex(order).reset_index(drop=True)
+        df = df.set_index("splitPoint2").reindex(order).reset_index()
         df.to_csv(self.output_file, index=False)
 
 def load_img(image_file, img_size_x, img_size_y, is_grayscale):
