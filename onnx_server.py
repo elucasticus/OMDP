@@ -9,6 +9,7 @@ import logging
 import csv
 import os, shutil
 import click
+from onnx_helper import CsvHandler
 
 
 def isNodeAnInitializer(onnx_model, node):
@@ -313,6 +314,32 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             returnData["result"] = returnData["result"].tolist()
 
         return returnData
+    
+    @app.route("/end", methods=["GET"])
+    def finalize():
+        global split_layers
+        if server_url == "":  # If we have reached the end of the chain stop
+            print("Endpoint reached!")
+            return {"Outcome": "Success!"}
+        else:   # Else compute the avgs for all the possible split layers
+            # Extract the name of the files
+            file_names = split_layers
+            for i in range(len(file_names)):
+                file_names[i] = file_names[i].replace("/", '-').replace(":", '_')
+            # Append NO_SPLIT
+            file_names.append("NO_SPLIT")
+            for i in range(len(file_names)):    # For every possible .csv file
+                csvfile = file_names[i] + ".csv"
+                if not os.path.isfile(csvfile): # Check if the file does exist
+                    del file_names[i]
+                else: # If it exist compute the file with the average times
+                    handler = CsvHandler(csvfile)
+                    handler.export_mean_values()
+            # Proceed recursively along the chain
+            url = server_url + "/end"
+            print("Uploading to %s" % url)
+            response = requests.get(url).json()
+            return {"Outcome": response["Outcome"]}
 
     return app
 

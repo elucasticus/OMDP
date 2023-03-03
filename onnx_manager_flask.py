@@ -807,7 +807,15 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
                           "singleLayerInfTimeProf": list2_avg[i][6], "InferenceError": str(listInfError[i]), "AbsInferenceError": str(np.abs(listInfError[i])), 
                           "AvgError": str(avgInfError) if i==1 else '', "AvgAbsError": str(avgAbsInfError) if i==1 else ''})
 
-  #TESTING
+  #Tell the next device to finalize the process
+  print("*** Sending the final request to the chain... ***")
+  if "endpoint" in server_url:
+    url = server_url.replace("endpoint", "end")
+  else:
+    url = server_url.replace("checkpoint", "end")
+  response = requests.get(url).json()
+  print(response["Outcome"])
+
   if plot_res:
     print("Plotting the results..")
     plot_results(AVG_RESULTS_CSV_FILE)
