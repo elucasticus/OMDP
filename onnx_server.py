@@ -335,6 +335,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                 else:  # If it exist compute the file with the average times
                     handler = CsvHandler(csvfile)
                     handler.export_mean_values()
+                    handler.reorder()
             # Proceed recursively along the chain
             url = server_url + "/end"
             print("Uploading to %s" % url)

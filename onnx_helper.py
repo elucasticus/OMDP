@@ -40,11 +40,22 @@ class CsvHandler:
     
     def export_mean_values(self):
         mean_values = self.mean()
-        output_file = self.csvfile.replace(".csv", "_avg.csv")
-        mean_values.to_csv(output_file)
+        self.output_file = self.csvfile.replace(".csv", "_avg.csv")
+        mean_values.to_csv(self.output_file)
+
+    def reorder(self):
+        order = f7(self.df["splitPoint2"].tolist())
+        df = pd.read_csv(self.output_file)
+        df = df.set_index("splitPoint2").reindex(order).reset_index(drop=True)
+        df.to_csv(self.output_file, index=False)
 
 def load_img(image_file, img_size_x, img_size_y, is_grayscale):
     img = Image.open(image_file)
     img.load()
     img = img.resize((img_size_x, img_size_y))
     return np.asarray(img, dtype="float32")
+
+def f7(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
