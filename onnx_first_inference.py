@@ -2,8 +2,6 @@
 #import sclblonnx as so
 import onnxruntime
 import onnx
-from tensorflow.keras.preprocessing.image import load_img
-from tensorflow.keras.preprocessing.image import img_to_array
 import numpy as np
 import argparse, sys
 import pickle

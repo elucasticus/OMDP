@@ -1,5 +1,7 @@
 import os, sys
 import csv, pandas
+from PIL import Image
+import numpy as np
 
 class HiddenPrints:
     def __enter__(self):
@@ -40,3 +42,9 @@ class CsvHandler:
         mean_values = self.mean()
         output_file = self.csvfile.replace(".csv", "_avg.csv")
         mean_values.to_csv(output_file)
+
+def load_img(image_file, img_size_x, img_size_y, is_grayscale):
+    img = Image.open(image_file)
+    img.load()
+    img = img.resize((img_size_x, img_size_y))
+    return np.asarray(img, dtype="float32")

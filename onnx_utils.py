@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
 from sqlalchemy import true
-from tensorflow.keras.preprocessing.image import load_img
-from tensorflow.keras.preprocessing.image import img_to_array
+from onnx_helper import load_img
 import shutil
 
 RESULTS_CSV_FILE = 'time_table.csv'
@@ -67,11 +66,8 @@ def data_processing(image_file, image_batch, img_size_x, img_size_y, is_grayscal
 
   # Import the single Image
   if image_file != None:
-    # Load an image from file
-    image = load_img(image_file, target_size=(img_size_x, img_size_y), grayscale=is_grayscale)
-
-    # convert the image pixels to a numpy array
-    image = img_to_array(image)
+    # Load an image from file and convert it to numpy array
+    image = load_img(image_file, img_size_x, img_size_y, is_grayscale)
 
     #Reshape the Image based on the input's tensor shape
     if input_tensor_shape[3] == 3:
@@ -102,8 +98,7 @@ def data_processing(image_file, image_batch, img_size_x, img_size_y, is_grayscal
     list_img = []
     for img_name in os.listdir(image_batch):
       #print(img_name)
-      new_img = load_img(image_batch+'/'+img_name, target_size=(img_size_x, img_size_y), grayscale=is_grayscale)
-      new_img = img_to_array(new_img)
+      new_img = load_img(image_batch+'/'+img_name, img_size_x, img_size_y, is_grayscale)
       #new_img = new_img.reshape((1, new_img.shape[0], new_img.shape[1], new_img.shape[2]))
 
       #Reshape the Image based on the input's tensor shape
