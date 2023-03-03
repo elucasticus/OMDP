@@ -121,9 +121,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             return {"next": "endpoint"}
         else:
             url = server_url + "/position"
-            print("Uploading to %s" %url)
+            print("Uploading to %s" % url)
             response = requests.get(url).json()
-            if response["next"] ==  "endpoint":
+            if response["next"] == "endpoint":
                 print("Linking to endpoint...")
                 is_linkingend = True
             else:
@@ -280,7 +280,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                             departure_time = time.time()
                             try:
                                 # Choose the correct url depending if we are linkging to the endpoint or to a second checkpoint
-                                if is_linkingend: 
+                                if is_linkingend:
                                     url = server_url + "/endpoint"
                                 else:
                                     url = server_url + "/checkpoint"
