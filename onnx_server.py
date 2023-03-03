@@ -54,10 +54,20 @@ def onnx_get_true_inputs(onnx_model):
 
 @click.command()
 @click.option("--onnx_file", help="Select the ONNX file to use for the inference")
-@click.option("--server_url", default="", help="Set the url of the next device on the chain. If this is the endpoint, use an empyt string")
+@click.option(
+    "--server_url",
+    default="",
+    help="Set the url of the next device on the chain. If this is the endpoint, use an empyt string",
+)
 @click.option("--log_file", default="", help="Select where to save the log of the operation performed")
-@click.option("--exec_provider", default="CPU", help="Select the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)")
-@click.option("--device", default=None, help="Specify the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..")
+@click.option(
+    "--exec_provider",
+    default="CPU",
+    help="Select the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)",
+)
+@click.option(
+    "--device", default=None, help="Specify the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc.."
+)
 @click.option("--threshold", default=10.0, help="Specify the threshold above which we skip the iteration")
 @click.option("--port", default=5000, help="Select the port where to run the flask app")
 @click.option("--host", default="127.0.0.1", help="Select where to host the flask app")
@@ -197,7 +207,13 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             fields = ["splitPoint1", "splitPoint2", "1stInfTime", "2ndInfTime", "networkingTime"]
             writer = csv.DictWriter(csvfile, fieldnames=fields)
             writer.writeheader()
-            row = {"splitPoint1": data["splitLayer"], "splitPoint2": "", "1stInfTime": 0.0, "2ndInfTime": 0.0, "networkingTime": 0.0}
+            row = {
+                "splitPoint1": data["splitLayer"],
+                "splitPoint2": "",
+                "1stInfTime": 0.0,
+                "2ndInfTime": 0.0,
+                "networkingTime": 0.0,
+            }
 
             if arrival_time - data["departure_time"] < threshold:
                 for i in range(input_layer_index + 1, len(split_layers)):
@@ -209,7 +225,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
                     # Compute the name of the file where we will export the submodel
                     if input_layer_index >= 0:
-                        onnx_model_file = "cache/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+                        onnx_model_file = (
+                            "cache/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+                        )
                     else:
                         onnx_model_file = "cache/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
 
@@ -219,7 +237,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         in_data["splitLayer"] = ""
                         # Split the model to obtain the second submodel and compute the time needed to run it
                         try:
-                            up_data = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, onnx_model_file, in_data, None, EP_list, device)
+                            up_data = onnx_extract_and_run_second_half(
+                                onnx_file, input_names, output_names, onnx_model_file, in_data, None, EP_list, device
+                            )
                         except Exception as e:
                             print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
                             raise e
@@ -275,7 +295,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             print("##### Trivial case #####")
             output_names = end_names
             onnx_model_file = "cache/checkpoint_" + str(input_layer_index) + "_no_split.onnx"
-            returnData = onnx_extract_and_run_second_half(onnx_file, input_names, output_names, onnx_model_file, data, None, EP_list, device)
+            returnData = onnx_extract_and_run_second_half(
+                onnx_file, input_names, output_names, onnx_model_file, data, None, EP_list, device
+            )
 
             # Save the results
             row["splitPoint2"] = "end"
