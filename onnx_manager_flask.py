@@ -436,6 +436,14 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   response = requests.post(url, json={"split_layers": up_layers}).json()
   print(response["Outcome"])
 
+  #Tell each device its position in the chain
+  if "endpoint" in server_url:
+    url = server_url.replace("endpoint", "position")
+  else:
+    url = server_url.replace("checkpoint", "position")
+  response = requests.get(url).json()
+  print("Linking to %s..." %response["next"])
+
   #Open an cvs file to save the results
   with open(RESULTS_CSV_FILE, 'w', newline='') as csvfile:
     with open(RESULTS_CSV_FILE2, 'w', newline='') as csvfile2:

@@ -96,7 +96,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     # Configure the logger
     logging.basicConfig(filename=log_file, format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
-    global onnx_model, end_names, split_layers, nextDev_times
+    global onnx_model, end_names, split_layers, nextDev_times, is_linkingend
 
     # Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
@@ -106,11 +106,29 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     split_layers = []
     nextDev_times = {}
+    is_linkingend = False
 
     # Check if cache directory exists, otherwise create it
     cache_directory_path = "cache"
     if not os.path.isdir(cache_directory_path):
         os.makedirs(cache_directory_path)
+
+    @app.route("/position", methods=["GET"])
+    def get_my_position():
+        global is_linkingend
+        if server_url == "":
+            print("Endpoint reached!")
+            return {"next": "endpoint"}
+        else:
+            url = server_url + "/position"
+            print("Uploading to %s" %url)
+            response = requests.get(url).json()
+            if response["next"] ==  "endpoint":
+                print("Linking to endpoint...")
+                is_linkingend = True
+            else:
+                print("Linking to another checkpoint...")
+            return {"next": "checkpoint"}
 
     @app.route("/split_layers", methods=["POST", "GET"])
     def get_split_layers():
@@ -188,7 +206,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/checkpoint", methods=["POST", "GET"])
     def checkpoint():
-        global onnx_model, end_names, split_layers, nextDev_times
+        global onnx_model, end_names, split_layers, nextDev_times, is_linkingend
 
         # Receive the incoming data
         data = json.load(request.files["data"])
@@ -261,7 +279,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                             print("Sending the intermediate tensors to the server...")
                             departure_time = time.time()
                             try:
-                                url = server_url + "/endpoint"
+                                # Choose the correct url depending if we are linkging to the endpoint or to a second checkpoint
+                                if is_linkingend: 
+                                    url = server_url + "/endpoint"
+                                else:
+                                    url = server_url + "/checkpoint"
                                 response = requests.post(url, files=files).json()
                                 response["networkingTime"] = response["arrival_time"] - departure_time
 
