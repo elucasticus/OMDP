@@ -164,8 +164,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             onnx_model_file = "cache/endpoint_no_split.onnx"
         else:
             input_names = [data["splitLayer"]]
-            input_layer_index = split_layers.index(data["splitLayer"])
-            onnx_model_file = "cache/endpoint_" + str(input_layer_index) + ".onnx"
+            try:  # Try to find the index of the layer inside the list
+                input_layer_index = split_layers.index(data["splitLayer"])
+                onnx_model_file = "cache/endpoint_" + str(input_layer_index) + ".onnx"
+            except:  # Otherwise use the name of the split layer to cache the onnx model
+                onnx_model_file = "cache/endpoint_" + data["splitLayer"].replace("/", "-").replace(":", "_") + ".onnx"
 
         output_names = end_names
 
