@@ -8,7 +8,7 @@ onnx-profiler is a tool for partitioning `.onnx` model and profiling them by run
 A quick example where we are going to partition the model `mobilenet.onnx` and run the partitioned model on three devices. For this quick example we will use a single device and we will emulate the second and the third ones by running them on port 5000 and 3000. 
 ### **1. Split the model**
 ```
-python onnx_cutter.py --onnx_model=mobilenet.onnx --ouput_path=onnx_models/mobilenet --num_partitions=10 --pickle_file=temp/split_layers
+python onnx_cutter.py --onnx_file=mobilenet.onnx --output_path=onnx_models/mobilenet --num_partitions=10 --pickle_file=temp/split_layers
 ```
 We find the 10 best points where to split `mobilenet.onnx` and we save the list with them in the file `temp/split_layers`. We also place inside `onnx_models/mobilnet` an initial partitioning of the model.
 ### **2. Turn on the server on the third device**
