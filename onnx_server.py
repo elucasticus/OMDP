@@ -72,7 +72,8 @@ def onnx_get_true_inputs(onnx_model):
 @click.option("--port", default=5000, help="Select the port where to run the flask app")
 @click.option("--host", default="127.0.0.1", help="Select where to host the flask app")
 def main(onnx_file, server_url, log_file, exec_provider, device, threshold, port, host):
-    shutil.rmtree("cache")
+    if os.path.isdir("cache"):
+        shutil.rmtree("cache")
     if exec_provider == "GPU":
         EP_list = ["CUDAExecutionProvider"]
     else:
