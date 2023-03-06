@@ -43,8 +43,10 @@ class CsvHandler:
         self.output_file = self.csvfile.replace(".csv", "_avg.csv")
         mean_values.to_csv(self.output_file)
 
-    def reorder(self):
+    def reorder(self, global_order):
         order = f7(self.df["splitPoint2"].tolist())
+        print(global_order)
+        order = sorted(order, key=global_order.index)
         df = pd.read_csv(self.output_file)
         df = df.set_index("splitPoint2").reindex(order).reset_index()
         df.to_csv(self.output_file, index=False)

@@ -268,12 +268,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
                     try:
                         # We use this simple trick to "fool" onnx_search_and_run_second_half
-                        in_data = data
-                        in_data["splitLayer"] = ""
+                        data["splitLayer"] = ""
                         # Split the model to obtain the second submodel and compute the time needed to run it
                         try:
                             up_data = onnx_extract_and_run_second_half(
-                                onnx_file, input_names, output_names, onnx_model_file, in_data, None, EP_list, device
+                                onnx_file, input_names, output_names, onnx_model_file, data, None, EP_list, device
                             )
                         except Exception as e:
                             print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
@@ -370,11 +369,13 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             return {"Outcome": "Success!"}
         else:  # Else compute the avgs for all the possible split layers
             # Extract the name of the files
-            file_names = split_layers
+            file_names = split_layers.copy()
             for i in range(len(file_names)):
                 file_names[i] = file_names[i].replace("/", "-").replace(":", "_")
-            # Append NO_SPLIT
+            order = split_layers.copy()
+            # Append NO_SPLIT and end
             file_names.append("NO_SPLIT")
+            order.append("end")
             for i in range(len(file_names)):  # For every possible .csv file
                 csvfile = file_names[i] + ".csv"
                 if not os.path.isfile(csvfile):  # Check if the file does exist
@@ -382,7 +383,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                 else:  # If it exist compute the file with the average times
                     handler = CsvHandler(csvfile)
                     handler.export_mean_values()
-                    handler.reorder()
+                    handler.reorder(order)
             # Proceed recursively along the chain
             url = server_url + "/end"
             print("Uploading to %s" % url)
