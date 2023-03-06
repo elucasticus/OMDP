@@ -179,7 +179,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         # Compute uploading time
         uploading_time = arrival_time - data["departure_time"]
 
-        if uploading_time >= threshold: # If uploading time is too big we skip the profiling
+        if uploading_time >= threshold:  # If uploading time is too big we skip the profiling
             return {"Outcome": "Threshold exceeded"}
 
         print("###### Input layer: %s ######" % data["splitLayer"])
@@ -243,7 +243,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                 "networkingTime": 0.0,
             }
 
-            if arrival_time - data["departure_time"] < threshold:   # If uploading time is too big we skip the profiling
+            if arrival_time - data["departure_time"] < threshold:  # If uploading time is too big we skip the profiling
                 for i in range(input_layer_index + 1, len(split_layers)):
                     # If the uploading time is too big, we skip this iteration
                     if split_layers[i] in nextDev_times:
@@ -251,7 +251,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         if response["Outcome"] == "Threshold exceeded":
                             logging.info(str(input_layer_index) + " to " + str(i) + ": THRESHOLD EXCEEDED")
                             continue
-                    
+
                     # Find the second split point
                     name = split_layers[i]
                     output_layer_index = split_layers.index(name)
