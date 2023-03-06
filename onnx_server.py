@@ -84,13 +84,14 @@ def main(onnx_file, server_url, log_file, exec_provider, device, threshold, port
 
 def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     """
-    Use an input model OR search the correct one and run at inference the Second Half of the Splitted Model
+    A flask application factory for extract and run slices of an onnx model at inference on multiple devices
 
     :param onnx_file: the ONNX file to use for the inference
-    :param server_url: specifies the url of the next device on the chain. If this is the endpoint, use an empyt string
+    :param server_url: specifies the url of the next device on the chain. If this is the endpoint, use an empty string
     :param log_file: specifies the file where to save the log of the operation performed
     :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
     :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
+    :param threshold: the threshold on the networking time above which we skip inference
     """
     app = Flask(__name__)
 
@@ -116,6 +117,10 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/position", methods=["GET"])
     def get_my_position():
+        """
+        Get the position of the device in the chain so that it knows if it's linking to the endpoint or to another
+        checkpoint
+        """
         global is_linkingend
         if server_url == "":
             print("Endpoint reached!")
@@ -133,6 +138,10 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/split_layers", methods=["POST", "GET"])
     def get_split_layers():
+        """
+        Get the list with the split points in the onnx model from the previous device and send it to the next
+        device in the chain
+        """
         global split_layers
         split_layers = request.json["split_layers"]
         if server_url == "":  # If we have reached the end of the chain stop
@@ -146,6 +155,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/next_iteration", methods=["GET"])
     def clear_cached_times():
+        """
+        Clear the eventual cached times and tell the next device to do so
+        """
         global nextDev_times
         nextDev_times = {}
         if server_url == "":  # If we have reached the end of the chain stop
@@ -167,6 +179,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/endpoint", methods=["POST", "GET"])
     def endpoint():
+        """
+        Extract and run at inference the last submodel of the partition of a onnx model
+        """
         global onnx_model, end_names, split_layers
 
         # Receive the incoming data
@@ -213,6 +228,10 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/checkpoint", methods=["POST", "GET"])
     def checkpoint():
+        """
+        Extract and run at inference all the possible submodel extracted from a onnx model starting from a certain
+        split point. Send the output of the runs to the next device and get the results.
+        """
         global onnx_model, end_names, split_layers, nextDev_times, is_linkingend
 
         # Receive the incoming data
@@ -363,6 +382,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     @app.route("/end", methods=["GET"])
     def finalize():
+        """
+        At the end of all repetitions, generate the files with the average times
+        """
         global split_layers
         if server_url == "":  # If we have reached the end of the chain stop
             print("Endpoint reached!")
