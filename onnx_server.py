@@ -176,6 +176,12 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         # Compute arrival time
         arrival_time = time.time()
 
+        # Compute uploading time
+        uploading_time = arrival_time - data["departure_time"]
+
+        if uploading_time >= threshold: # If uploading time is too big we skip the profiling
+            return {"Outcome": "Threshold exceeded"}
+
         print("###### Input layer: %s ######" % data["splitLayer"])
         # Split the model to obtain the third submodel
         if data["splitLayer"] == "NO_SPLIT":
@@ -237,8 +243,15 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                 "networkingTime": 0.0,
             }
 
-            if arrival_time - data["departure_time"] < threshold:
+            if arrival_time - data["departure_time"] < threshold:   # If uploading time is too big we skip the profiling
                 for i in range(input_layer_index + 1, len(split_layers)):
+                    # If the uploading time is too big, we skip this iteration
+                    if split_layers[i] in nextDev_times:
+                        response = nextDev_times[split_layers[i]]
+                        if response["Outcome"] == "Threshold exceeded":
+                            logging.info(str(input_layer_index) + " to " + str(i) + ": THRESHOLD EXCEEDED")
+                            continue
+                    
                     # Find the second split point
                     name = split_layers[i]
                     output_layer_index = split_layers.index(name)
@@ -270,6 +283,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         del up_data["result"]
                         up_data["splitLayer"] = name
                         up_data["execTime1"] = up_data["execTime2"]
+                        # Embed departure time inside uploading data
+                        departure_time = time.time()
+                        up_data["departure_time"] = departure_time
                         files = [
                             ("document", ("input_check.npy", open("input_check.npy", "rb"), "application/octet")),
                             ("data", ("up_data", json.dumps(up_data), "application/json")),
@@ -278,7 +294,6 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         if not split_layers[i] in nextDev_times:
                             # Send the Intermediate Tensors to the server
                             print("Sending the intermediate tensors to the server...")
-                            departure_time = time.time()
                             try:
                                 # Choose the correct url depending if we are linkging to the endpoint or to a second checkpoint
                                 if is_linkingend:
@@ -286,17 +301,23 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                                 else:
                                     url = server_url + "/checkpoint"
                                 response = requests.post(url, files=files).json()
-                                response["networkingTime"] = response["arrival_time"] - departure_time
 
                                 # Save the inference time of the submodel on the next device for future iterations
                                 nextDev_times[split_layers[i]] = response
 
-                                # Save the results
-                                row["splitPoint2"] = split_layers[i]
-                                row["1stInfTime"] = response["execTime1"]
-                                row["2ndInfTime"] = response["execTime2"]
-                                row["networkingTime"] = response["networkingTime"]
-                                writer.writerow(row)
+                                if response["Outcome"] != "Threshold exceeded":
+                                    # Compute networking time
+                                    response["networkingTime"] = response["arrival_time"] - departure_time
+
+                                    # Save the results
+                                    row["splitPoint2"] = split_layers[i]
+                                    row["1stInfTime"] = response["execTime1"]
+                                    row["2ndInfTime"] = response["execTime2"]
+                                    row["networkingTime"] = response["networkingTime"]
+                                    writer.writerow(row)
+                                    logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
+                                else:
+                                    logging.info(str(input_layer_index) + " to " + str(i) + ": THRESHOLD EXCEEDED")
                             except:
                                 print("...ENDPOINT FAILED!...")
                                 raise Exception("ENDPOINT FAILED")
@@ -308,8 +329,8 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                             row["2ndInfTime"] = response["execTime2"]
                             row["networkingTime"] = response["networkingTime"]
                             writer.writerow(row)
+                            logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
 
-                        logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
                     except Exception as e:
                         error_message = str(e)
                         print(error_message)
