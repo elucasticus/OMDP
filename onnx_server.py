@@ -92,6 +92,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
     :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
     :param threshold: the threshold on the networking time above which we skip inference
+    :return: the blueprint for a flask app which can be run by calling the method run
     """
     app = Flask(__name__)
 

@@ -1,8 +1,5 @@
 from numpy.core.numeric import True_
-#import sclblonnx as so
 import onnx
-#from skl2onnx.helpers.onnx_helper import select_model_inputs_outputs
-#from skl2onnx.helpers.onnx_helper import save_onnx_model
 from skl2onnx.helpers.onnx_helper import enumerate_model_node_outputs
 from skl2onnx.helpers.onnx_helper import load_onnx_model
 import datetime
@@ -15,7 +12,6 @@ import csv
 from onnx_first_inference import onnx_run_first_half
 import pickle
 import onnxruntime
-#from onnxruntime.quantization import quantize_static, quantize_dynamic, CalibrationDataReader, QuantFormat, QuantType
 from onnx_opcounter import calculate_params, calculate_macs
 from onnx2json import convert
 from onnx_splitter import (onnx_model_split, onnx_model_split_all, onnx_model_multi_split, onnx_model_early_exits_split, 
