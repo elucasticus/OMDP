@@ -1,6 +1,7 @@
 from flask import Flask, request
 import requests
 import time
+import ntplib
 from onnx_second_inference_flask import onnx_search_and_run_second_half, onnx_extract_and_run_second_half
 import numpy as np
 import json
@@ -99,7 +100,14 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     # Configure the logger
     logging.basicConfig(filename=log_file, format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
-    global onnx_model, end_names, split_layers, nextDev_times, is_linkingend
+    global onnx_model, end_names, split_layers, nextDev_times, is_linkingend, correction
+
+    # Sync the clock of the device with the NTP servers
+    c = ntplib.NTPClient()
+    response = c.request('pool.ntp.org')
+    offset = response.offset
+    delay = response.delay
+    correction = delay/2 - offset
 
     # Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
@@ -183,14 +191,14 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         """
         Extract and run at inference the last submodel of the partition of a onnx model
         """
-        global onnx_model, end_names, split_layers
+        global onnx_model, end_names, split_layers, correction
 
         # Receive the incoming data
         data = json.load(request.files["data"])
         data["result"] = np.load(request.files["document"]).tolist()
 
         # Compute arrival time
-        arrival_time = time.time()
+        arrival_time = time.time() + correction
 
         # Compute uploading time
         uploading_time = arrival_time - data["departure_time"]
@@ -233,14 +241,14 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         Extract and run at inference all the possible submodel extracted from a onnx model starting from a certain
         split point. Send the output of the runs to the next device and get the results.
         """
-        global onnx_model, end_names, split_layers, nextDev_times, is_linkingend
+        global onnx_model, end_names, split_layers, nextDev_times, is_linkingend, correction
 
         # Receive the incoming data
         data = json.load(request.files["data"])
         data["result"] = np.load(request.files["document"]).tolist()
 
         # Compute arrival time
-        arrival_time = time.time()
+        arrival_time = time.time() + correction
 
         # Extract the input layer and its index into the list of possible splits
         if data["splitLayer"] == "NO_SPLIT":
@@ -303,7 +311,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         up_data["splitLayer"] = name
                         up_data["execTime1"] = up_data["execTime2"]
                         # Embed departure time inside uploading data
-                        departure_time = time.time()
+                        departure_time = time.time() + correction
                         up_data["departure_time"] = departure_time
                         files = [
                             ("document", ("input_check.npy", open("input_check.npy", "rb"), "application/octet")),

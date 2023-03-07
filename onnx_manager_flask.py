@@ -30,6 +30,7 @@ from onnx_utils import plot_results
 
 #Additional dependencies
 from onnx_helper import HiddenPrints
+import ntplib
 
 # Prefer ACL Execution Provider over CPU Execution Provider
 ACL_EP_list       = ['ACLExecutionProvider']
@@ -278,7 +279,7 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
 
   #TESTING
   #dictTensors = {} 
-  global dictTensors 
+  global dictTensors, correction
 
   #Iterate through the subdirectories to find the ONNX model splitted at our selected layer
   onnx_file = None
@@ -348,7 +349,7 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
     np.save("input", data["result"])
     del data["result"]
     #Compute departure time
-    departure_time = time.time()
+    departure_time = time.time() + correction
     data["departure_time"] = departure_time
     #Combine the .npy and the .json files
     files = [
@@ -405,8 +406,14 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   if warmupTime == None: warmupTime = 0#60
 
   #TESTING
-  global dictTensors
+  global dictTensors, correction
   #dictTensors = {}
+
+  c = ntplib.NTPClient()
+  response = c.request('pool.ntp.org')
+  offset = response.offset
+  delay = response.delay
+  correction = delay/2 - offset
 
   #Load the Onnx Model
   model_onnx = load_onnx_model(onnx_file)
