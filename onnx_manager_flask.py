@@ -152,6 +152,7 @@ Examples:
   parser.add_argument('--server_url', help='Select the Address of the Flask Server')
   parser.add_argument('--plot_res', help='Select whether or no plot the results')
   parser.add_argument('--pickle_file', help='Select the pickle file where the list with the split points of the models is stored')
+  parser.add_argument('--sync_time', help='Select whether or no sync time with NTP servers')
   args=parser.parse_args()
   print ("Operation: " + args.operation)
 
@@ -212,6 +213,7 @@ Examples:
                             args.device_type,
                             args.server_url,
                             args.pickle_file,
+                            args.sync_time,
                             args.xml_file,
                             args.warmup_time,
                             args.plot_res)
@@ -382,7 +384,8 @@ def onnx_run_complete(onnx_path, split_layer, image_file, image_batch, img_size_
     
 def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_size_x, img_size_y, is_grayscale, 
                           repetitions, exec_provider, 
-                          device_type, server_url, pickle_file = "temp/split_layers", xml_file = None, warmupTime = None, plot_res = False):
+                          device_type, server_url, pickle_file = "temp/split_layers", sync_time=False, 
+                          xml_file = None, warmupTime = None, plot_res = False):
   '''
   Run a complete cycle of inference for every splitted pair of models in the folder passed as argument, save the results in a CSV File and Plot the results.
   To run a complete cycle means to run the first half of the model locally, get the results, load them on the cloud, execute 
@@ -409,12 +412,15 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   global dictTensors, correction
   #dictTensors = {}
 
-  c = ntplib.NTPClient()
-  response = c.request('ntp1.inrim.it')
-  offset = response.offset
-  delay = response.delay
-  # correction = delay/2 - offset
-  correction = offset
+  if sync_time:
+    c = ntplib.NTPClient()
+    response = c.request('ntp1.inrim.it')
+    offset = response.offset
+    delay = response.delay
+    # correction = delay/2 - offset
+    correction = offset
+  else:
+    correction = 0.
 
   #Load the Onnx Model
   model_onnx = load_onnx_model(onnx_file)

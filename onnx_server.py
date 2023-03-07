@@ -70,20 +70,21 @@ def onnx_get_true_inputs(onnx_model):
     "--device", default=None, help="Specify the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc.."
 )
 @click.option("--threshold", default=10.0, help="Specify the threshold above which we skip the iteration")
+@click.option("--sync_time", default=False, help="Specify whether or no sync the time with NTP servers")
 @click.option("--port", default=5000, help="Select the port where to run the flask app")
 @click.option("--host", default="127.0.0.1", help="Select where to host the flask app")
-def main(onnx_file, server_url, log_file, exec_provider, device, threshold, port, host):
+def main(onnx_file, server_url, log_file, exec_provider, device, threshold, port, host, sync_time):
     if os.path.isdir("cache"):
         shutil.rmtree("cache")
     if exec_provider == "GPU":
         EP_list = ["CUDAExecutionProvider"]
     else:
         EP_list = ["CPUExecutionProvider"]
-    app = run(onnx_file, server_url, log_file, EP_list, device, threshold)
+    app = run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time)
     app.run(port=port, host=host)
 
 
-def run(onnx_file, server_url, log_file, EP_list, device, threshold):
+def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
     """
     A flask application factory for extract and run slices of an onnx model at inference on multiple devices
 
@@ -93,6 +94,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
     :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
     :param threshold: the threshold on the networking time above which we skip inference
+    :param sync_time: whether or no to sync time with NTP servers
     :return: the blueprint for a flask app which can be run by calling the method run
     """
     app = Flask(__name__)
@@ -103,12 +105,15 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     global onnx_model, end_names, split_layers, nextDev_times, is_linkingend, correction
 
     # Sync the clock of the device with the NTP servers
-    c = ntplib.NTPClient()
-    response = c.request('ntp1.inrim.it')
-    offset = response.offset
-    delay = response.delay
-    # correction = delay/2 - offset
-    correction = offset
+    if sync_time:
+        c = ntplib.NTPClient()
+        response = c.request('ntp1.inrim.it')
+        offset = response.offset
+        delay = response.delay
+        # correction = delay/2 - offset
+        correction = offset
+    else:
+        correction = 0.
 
     # Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
