@@ -107,7 +107,8 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     response = c.request('ntp1.inrim.it')
     offset = response.offset
     delay = response.delay
-    correction = delay/2 - offset
+    # correction = delay/2 - offset
+    correction = offset
 
     # Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
