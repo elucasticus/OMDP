@@ -104,7 +104,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
     # Sync the clock of the device with the NTP servers
     c = ntplib.NTPClient()
-    response = c.request('pool.ntp.org')
+    response = c.request('ntp1.inrim.it')
     offset = response.offset
     delay = response.delay
     correction = delay/2 - offset

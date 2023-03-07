@@ -410,7 +410,7 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   #dictTensors = {}
 
   c = ntplib.NTPClient()
-  response = c.request('pool.ntp.org')
+  response = c.request('ntp1.inrim.it')
   offset = response.offset
   delay = response.delay
   correction = delay/2 - offset
