@@ -413,7 +413,8 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   response = c.request('ntp1.inrim.it')
   offset = response.offset
   delay = response.delay
-  correction = delay/2 - offset
+  # correction = delay/2 - offset
+  correction = offset
 
   #Load the Onnx Model
   model_onnx = load_onnx_model(onnx_file)
