@@ -2,7 +2,7 @@ from space4aidpartitioner import SPACE4AIDPartitioner
 from skl2onnx.helpers.onnx_helper import load_onnx_model
 import pickle
 import click
-import shutil
+import shutil, os
 
 
 @click.command()
@@ -16,7 +16,8 @@ import shutil
 )
 def main(onnx_file, output_path, num_partitions, pickle_file):
     # Clear the output directory
-    shutil.rmtree(output_path)
+    if os.path.isdir(output_path):
+        shutil.rmtree(output_path)
 
     partitionable_model = output_path
     partitioner = SPACE4AIDPartitioner(onnx_file, partitionable_model)

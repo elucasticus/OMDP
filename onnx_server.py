@@ -70,21 +70,20 @@ def onnx_get_true_inputs(onnx_model):
     "--device", default=None, help="Specify the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc.."
 )
 @click.option("--threshold", default=10.0, help="Specify the threshold above which we skip the iteration")
-@click.option("--sync_time", default=False, help="Specify whether or no sync the time with NTP servers")
 @click.option("--port", default=5000, help="Select the port where to run the flask app")
 @click.option("--host", default="127.0.0.1", help="Select where to host the flask app")
-def main(onnx_file, server_url, log_file, exec_provider, device, threshold, port, host, sync_time):
+def main(onnx_file, server_url, log_file, exec_provider, device, threshold, port, host):
     if os.path.isdir("cache"):
         shutil.rmtree("cache")
     if exec_provider == "GPU":
         EP_list = ["CUDAExecutionProvider"]
     else:
         EP_list = ["CPUExecutionProvider"]
-    app = run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time)
+    app = run(onnx_file, server_url, log_file, EP_list, device, threshold)
     app.run(port=port, host=host)
 
 
-def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
+def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     """
     A flask application factory for extract and run slices of an onnx model at inference on multiple devices
 
@@ -94,7 +93,6 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
     :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
     :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
     :param threshold: the threshold on the networking time above which we skip inference
-    :param sync_time: whether or no to sync time with NTP servers
     :return: the blueprint for a flask app which can be run by calling the method run
     """
     app = Flask(__name__)
@@ -102,18 +100,17 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
     # Configure the logger
     logging.basicConfig(filename=log_file, format="%(asctime)s %(message)s", filemode="w", level=logging.INFO)
 
-    global onnx_model, end_names, split_layers, nextDev_times, is_linkingend, correction
+    global onnx_model, end_names, split_layers, nextDev_times, is_linkingend
 
     # Sync the clock of the device with the NTP servers
-    if sync_time:
-        c = ntplib.NTPClient()
-        response = c.request('ntp1.inrim.it')
-        offset = response.offset
-        delay = response.delay
-        # correction = delay/2 - offset
-        correction = offset
-    else:
-        correction = 0.
+    # if sync_time:
+    #    c = ntplib.NTPClient()
+    #    response = c.request('ntp1.inrim.it')
+    #    offset = response.offset
+    #    delay = response.delay
+    #    correction = offset - delay/2
+    # else:
+    #    correction = 0.
 
     # Load the onnx model and extract the final output names
     onnx_model = onnx.load(onnx_file)
@@ -129,6 +126,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
     cache_directory_path = "cache"
     if not os.path.isdir(cache_directory_path):
         os.makedirs(cache_directory_path)
+
+    @app.before_request
+    def before_request():
+        global request_start_time
+        request_start_time = time.time()
 
     @app.route("/position", methods=["GET"])
     def get_my_position():
@@ -197,17 +199,17 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
         """
         Extract and run at inference the last submodel of the partition of a onnx model
         """
-        global onnx_model, end_names, split_layers, correction
+        global onnx_model, end_names, split_layers, request_start_time
 
         # Receive the incoming data
         data = json.load(request.files["data"])
         data["result"] = np.load(request.files["document"]).tolist()
 
         # Compute arrival time
-        arrival_time = time.time() + correction
+        arrival_time = time.time()
 
         # Compute uploading time
-        uploading_time = arrival_time - data["departure_time"]
+        uploading_time = arrival_time - request_start_time
 
         if uploading_time >= threshold:  # If uploading time is too big we skip the profiling
             return {"Outcome": "Threshold exceeded"}
@@ -237,7 +239,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
 
         # Return the results
         returnData["Outcome"] = "Success"
-        returnData["arrival_time"] = arrival_time
+        returnData["networkingTime"] = uploading_time
         returnData["result"] = returnData["result"].tolist()
         return returnData
 
@@ -247,14 +249,14 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
         Extract and run at inference all the possible submodel extracted from a onnx model starting from a certain
         split point. Send the output of the runs to the next device and get the results.
         """
-        global onnx_model, end_names, split_layers, nextDev_times, is_linkingend, correction
+        global onnx_model, end_names, split_layers, nextDev_times, is_linkingend, request_start_time
 
         # Receive the incoming data
         data = json.load(request.files["data"])
         data["result"] = np.load(request.files["document"]).tolist()
 
         # Compute arrival time
-        arrival_time = time.time() + correction
+        arrival_time = time.time()
 
         # Extract the input layer and its index into the list of possible splits
         if data["splitLayer"] == "NO_SPLIT":
@@ -317,7 +319,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
                         up_data["splitLayer"] = name
                         up_data["execTime1"] = up_data["execTime2"]
                         # Embed departure time inside uploading data
-                        departure_time = time.time() + correction
+                        departure_time = time.time()
                         up_data["departure_time"] = departure_time
                         files = [
                             ("document", ("input_check.npy", open("input_check.npy", "rb"), "application/octet")),
@@ -339,9 +341,6 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
                                 nextDev_times[split_layers[i]] = response
 
                                 if response["Outcome"] != "Threshold exceeded":
-                                    # Compute networking time
-                                    response["networkingTime"] = response["arrival_time"] - departure_time
-
                                     # Save the results
                                     row["splitPoint2"] = split_layers[i]
                                     row["1stInfTime"] = response["execTime1"]
@@ -390,7 +389,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold, sync_time):
 
             # Return the results
             returnData["Outcome"] = "Success"
-            returnData["arrival_time"] = arrival_time
+            returnData["networkingTime"] = arrival_time - request_start_time
             returnData["result"] = returnData["result"].tolist()
 
         return returnData
