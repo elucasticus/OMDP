@@ -1,6 +1,6 @@
-# **ONNX-PROFILER**
+# **Onnx Multi-Device Profiler (OMDP)**
 ## **Introduction**
-onnx-profiler is a tool for partitioning `.onnx` model and profiling them by running the partitioned models on multiple devices. Born as a fork of [onnx-splitter](https://github.com/thestarivore/onnx-splitter), onnx-profiler:
+**OMDP** (**Onnx Multi-Device Profiler**) is a tool for partitioning `.onnx` model and profiling them by running the partitioned models on multiple devices. Born as a fork of [onnx-splitter](https://github.com/thestarivore/onnx-splitter), **OMDP**:
 - replaces the original partitioner with a new more performing one
 - replaces OSCAR with an http request to a flask application
 - allows to work with three or more devices.
