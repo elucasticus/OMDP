@@ -10,7 +10,6 @@ onnxruntime==1.13.1
 packaging==23.0
 pandas==1.5.3
 Pillow==9.4.0
-protobuf==4.22.0
 requests==2.28.1
 skl2onnx==1.14.0
 SQLAlchemy==1.4.44

@@ -1,7 +1,6 @@
 from flask import Flask, request
 import requests
 import time
-import ntplib
 from onnx_second_inference_flask import onnx_search_and_run_second_half, onnx_extract_and_run_second_half
 import numpy as np
 import json

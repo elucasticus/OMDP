@@ -30,7 +30,6 @@ from onnx_utils import plot_results
 
 #Additional dependencies
 from onnx_helper import HiddenPrints
-import ntplib
 
 # Prefer ACL Execution Provider over CPU Execution Provider
 ACL_EP_list       = ['ACLExecutionProvider']
