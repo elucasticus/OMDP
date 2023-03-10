@@ -267,12 +267,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
         results_file = data["splitLayer"].replace("/", "-").replace(":", "_") + ".csv"
         with open(results_file, "a", newline="") as csvfile:
-            fields = ["splitPoint1", "splitPoint2", "1stInfTime", "2ndInfTime", "networkingTime"]
+            fields = ["SplitLayer", "1stInfTime", "2ndInfTime", "networkingTime"]
             writer = csv.DictWriter(csvfile, fieldnames=fields)
             writer.writeheader()
             row = {
-                "splitPoint1": data["splitLayer"],
-                "splitPoint2": "",
+                "SplitLayer": "",
                 "1stInfTime": 0.0,
                 "2ndInfTime": 0.0,
                 "networkingTime": 0.0,
@@ -341,7 +340,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
                                 if response["Outcome"] != "Threshold exceeded":
                                     # Save the results
-                                    row["splitPoint2"] = split_layers[i]
+                                    row["SplitLayer"] = split_layers[i].replace("/", "-").replace(":", "_")
                                     row["1stInfTime"] = response["execTime1"]
                                     row["2ndInfTime"] = response["execTime2"]
                                     row["networkingTime"] = response["networkingTime"]
@@ -355,7 +354,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         else:
                             response = nextDev_times[split_layers[i]]
                             # Save the results
-                            row["splitPoint2"] = split_layers[i]
+                            row["SplitLayer"] = split_layers[i].replace("/", "-").replace(":", "_")
                             row["1stInfTime"] = up_data["execTime1"]
                             row["2ndInfTime"] = response["execTime2"]
                             row["networkingTime"] = response["networkingTime"]
@@ -378,7 +377,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             )
 
             # Save the results
-            row["splitPoint2"] = "end"
+            row["SplitLayer"] = "NO_SPLIT"
             row["1stInfTime"] = returnData["execTime2"]
             row["2ndInfTime"] = 0.0
             row["networkingTime"] = 0.0
@@ -407,18 +406,14 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             file_names = split_layers.copy()
             for i in range(len(file_names)):
                 file_names[i] = file_names[i].replace("/", "-").replace(":", "_")
-            order = split_layers.copy()
-            # Append NO_SPLIT and end
+            # Append NO_SPLIT
             file_names.append("NO_SPLIT")
-            order.append("end")
             for i in range(len(file_names)):  # For every possible .csv file
                 csvfile = file_names[i] + ".csv"
-                if not os.path.isfile(csvfile):  # Check if the file does exist
-                    del file_names[i]
-                else:  # If it exist compute the file with the average times
+                if os.path.isfile(csvfile):  # If the file does exist
                     handler = CsvHandler(csvfile)
                     handler.export_mean_values()
-                    handler.reorder(order)
+                    handler.reorder(file_names)
             # Proceed recursively along the chain
             url = server_url + "/end"
             print("Uploading to %s" % url)

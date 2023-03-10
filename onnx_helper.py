@@ -59,21 +59,24 @@ class CsvHandler:
                         lines.remove(row)
         return lines
 
-    def mean(self):
+    def mean(self, groups):
         """
         Compute the average times
 
-        :return: a pandas dataframe with the average value of all the numeric variables grouped by the second split point
+        :return: a pandas dataframe with the average value of all the numeric variables grouped by the split layer
         """
-        return self.df.groupby(["splitPoint1", "splitPoint2"]).mean()
+        return self.df.groupby(groups).mean()
 
-    def export_mean_values(self):
+    def export_mean_values(self, groups = ["SplitLayer"]):
         """
         Generate the file with the average times
         """
-        mean_values = self.mean()
+        mean_values = self.mean(groups)
         self.output_file = self.csvfile.replace(".csv", "_avg.csv")
         mean_values.to_csv(self.output_file)
+
+    def _clear_dataset(self):
+        self.df = self.df[self.df["SplitLayer"] != "NO_SPLIT"]
 
     def reorder(self, global_order):
         """
@@ -81,10 +84,10 @@ class CsvHandler:
 
         :param gloabal_order: a list with the order of the split points of the onnx model
         """
-        order = f7(self.df["splitPoint2"].tolist())
+        order = f7(self.df["SplitLayer"].tolist())
         order = sorted(order, key=global_order.index)
         df = pd.read_csv(self.output_file)
-        df = df.set_index("splitPoint2").reindex(order).reset_index()
+        df = df.set_index("SplitLayer").reindex(order).reset_index()
         df.to_csv(self.output_file, index=False)
 
 
