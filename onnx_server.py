@@ -267,7 +267,15 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
         results_file = data["splitLayer"].replace("/", "-").replace(":", "_") + ".csv"
         with open(results_file, "a", newline="") as csvfile:
-            fields = ["SplitLayer", "1stInfTime", "2ndInfTime", "networkingTime"]
+            fields = [
+                "SplitLayer",
+                "1stInfTime",
+                "2ndInfTime",
+                "networkingTime",
+                # "tensorSaveTime",
+                "tensorLoadTime",
+                "tensorLength",
+            ]
             writer = csv.DictWriter(csvfile, fieldnames=fields)
             writer.writeheader()
             row = {
@@ -275,6 +283,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                 "1stInfTime": 0.0,
                 "2ndInfTime": 0.0,
                 "networkingTime": 0.0,
+                # "tensorSaveTime": 0.0,
+                "tensorLoadTime": 0.0,
+                "tensorLength": 0,
             }
 
             if arrival_time - data["departure_time"] < threshold:  # If uploading time is too big we skip the profiling
@@ -312,6 +323,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                             print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
                             raise e
 
+                        up_data["tensorLength"] = up_data["result"].size
                         np.save("input_check", up_data["result"])
                         del up_data["result"]
                         up_data["splitLayer"] = name
@@ -344,6 +356,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                                     row["1stInfTime"] = response["execTime1"]
                                     row["2ndInfTime"] = response["execTime2"]
                                     row["networkingTime"] = response["networkingTime"]
+                                    # row["tensorSaveTime"] = response["tensorSaveTime"]
+                                    row["tensorLoadTime"] = response["tensorLoadTime"]
+                                    row["tensorLength"] = response["tensorLength"]
                                     writer.writerow(row)
                                     logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
                                 else:
@@ -358,6 +373,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                             row["1stInfTime"] = up_data["execTime1"]
                             row["2ndInfTime"] = response["execTime2"]
                             row["networkingTime"] = response["networkingTime"]
+                            # row["tensorSaveTime"] = response["tensorSaveTime"]
+                            row["tensorLoadTime"] = response["tensorLoadTime"]
+                            row["tensorLength"] = response["tensorLength"]
                             writer.writerow(row)
                             logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
 
@@ -381,6 +399,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             row["1stInfTime"] = returnData["execTime2"]
             row["2ndInfTime"] = 0.0
             row["networkingTime"] = 0.0
+            # row["tensorSaveTime"] = 0.0
+            row["tensorLoadTime"] = 0.0
+            row["tensorLength"] = 0
             writer.writerow(row)
 
             logging.info(str(input_layer_index) + " to end: OK")
