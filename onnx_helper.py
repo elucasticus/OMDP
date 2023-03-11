@@ -3,6 +3,7 @@ import csv
 import pandas as pd
 from PIL import Image
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class HiddenPrints:
@@ -67,7 +68,7 @@ class CsvHandler:
         """
         return self.df.groupby(groups).mean()
 
-    def export_mean_values(self, groups = ["SplitLayer"]):
+    def export_mean_values(self, groups=["SplitLayer"]):
         """
         Generate the file with the average times
         """
@@ -89,6 +90,53 @@ class CsvHandler:
         df = pd.read_csv(self.output_file)
         df = df.set_index("SplitLayer").reindex(order).reset_index()
         df.to_csv(self.output_file, index=False)
+
+    def prepare_nextLayer_datasets(self, n_repetitions, n_train):
+        """
+        Generate the training and the test set for nextLayerProfiling with aMLLibrary
+
+        :param n_repetitions: the number of repetitions to use
+        :param n_train: the number of layer for training. Layers up to n-1 will be used for training, layers from n will be used for testing
+        """
+        # Remove the extra lines
+        self._clear_dataset()
+
+        # Extract the list with the split layers
+        SplitLayer = f7(self.df["SplitLayer"].tolist())
+        n_split_points = len(SplitLayer)
+
+        # Select only the required number of repetitions
+        MLdf = self.df[: n_repetitions * n_split_points]
+
+        # Generate .csv files for training and testing the model
+        train = MLdf[MLdf["SplitLayer"].isin(SplitLayer[:n_train])]
+        test = self.df[self.df["SplitLayer"].isin(SplitLayer[n_train:])]
+        train.to_csv("train.csv", index=False)
+        test.to_csv("test.csv", index=False)
+
+        return MLdf, n_split_points
+
+    def compute_nextLayer_error(self, n_total_repetitions, n_split_points, n_train):
+        """
+        Compute the Mean Average Prediction Error for each test layer for nextLayerProfiling
+
+        :param n_total_repetitions: the total number of repetitions in the dataset
+        :param n_split_point: the number of split layers
+        :param n_train: the number of layer for training
+        """
+        firstInfTime = np.array(self.df["1stInfTime"]).reshape(n_total_repetitions, n_split_points)
+        firstInf_real = firstInfTime[:, n_train:]
+
+        y_test = pd.read_csv("output_test/prediction.csv")
+        real = np.array(y_test["real"]).reshape(n_total_repetitions, n_split_points - n_train)
+        pred = np.array(y_test["pred"]).reshape(n_total_repetitions, n_split_points - n_train)
+
+        firstInf_pred = np.cumsum(pred, axis=1)
+        for i in range(n_total_repetitions):
+            firstInf_pred[i] = firstInf_pred[i] + firstInfTime[i, n_train - 1]
+
+        mape = np.mean(np.abs(firstInf_real - firstInf_pred) / firstInf_real, axis=0)
+        return mape
 
 
 def load_img(image_file, img_size_x, img_size_y, is_grayscale):
