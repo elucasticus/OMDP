@@ -434,18 +434,18 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
   print("Sending the list with the split points to the next device...")
   with open(pickle_file, "rb") as fp:   # Unpickling
     up_layers = pickle.load(fp)
-  if "endpoint" in server_url:
-    url = server_url.replace("endpoint", "split_layers")
+  if "last_layer" in server_url:
+    url = server_url.replace("last_layer", "split_layers")
   else:
-    url = server_url.replace("checkpoint", "split_layers")
+    url = server_url.replace("intermediate_layer", "split_layers")
   response = requests.post(url, json={"split_layers": up_layers}).json()
   print(response["Outcome"])
 
   #Tell each device its position in the chain
-  if "endpoint" in server_url:
-    url = server_url.replace("endpoint", "position")
+  if "last_layer" in server_url:
+    url = server_url.replace("last_layer", "position")
   else:
-    url = server_url.replace("checkpoint", "position")
+    url = server_url.replace("intermediate_layer", "position")
   response = requests.get(url).json()
   print("Linking to %s..." %response["next"])
 
@@ -457,10 +457,10 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
         print("\n##########   REPETITION #%d   ##########\n" %(rep + 1))
 
         #Tell the next device to clear the eventual cached times
-        if "endpoint" in server_url:
-          url = server_url.replace("endpoint", "next_iteration")
+        if "last_layer" in server_url:
+          url = server_url.replace("last_layer", "next_iteration")
         else:
-          url = server_url.replace("checkpoint", "next_iteration")
+          url = server_url.replace("intermediate_layer", "next_iteration")
         response = requests.get(url).json()
         print(response["Outcome"])
 
@@ -822,10 +822,10 @@ def onnx_run_all_complete(onnx_file, onnx_path, image_file, image_batch, img_siz
 
   #Tell the next device to finalize the process
   print("*** Sending the final request to the chain... ***")
-  if "endpoint" in server_url:
-    url = server_url.replace("endpoint", "end")
+  if "last_layer" in server_url:
+    url = server_url.replace("last_layer", "end")
   else:
-    url = server_url.replace("checkpoint", "end")
+    url = server_url.replace("intermediate_layer", "end")
   response = requests.get(url).json()
   print(response["Outcome"])
 

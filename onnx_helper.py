@@ -244,7 +244,7 @@ class PlotHandler:
                     axs[row].legend(bbox_to_anchor=(1, 1))
             except:
                 axs[row].axis("off")
-        fig.suptitle("Inference times", fontsize=20)
+        fig.suptitle("Inference Times", fontsize=20)
         plt.savefig("infTimes")
 
 

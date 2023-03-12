@@ -57,7 +57,7 @@ def onnx_get_true_inputs(onnx_model):
 @click.option(
     "--server_url",
     default="",
-    help="Set the url of the next device on the chain. If this is the endpoint, use an empyt string",
+    help="Set the url of the next device on the chain. If this is the last layer, use an empyt string",
 )
 @click.option("--log_file", default="", help="Select where to save the log of the operation performed")
 @click.option(
@@ -87,7 +87,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     A flask application factory for extract and run slices of an onnx model at inference on multiple devices
 
     :param onnx_file: the ONNX file to use for the inference
-    :param server_url: specifies the url of the next device on the chain. If this is the endpoint, use an empty string
+    :param server_url: specifies the url of the next device on the chain. If this is the last layer, use an empty string
     :param log_file: specifies the file where to save the log of the operation performed
     :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
     :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
@@ -134,23 +134,23 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     @app.route("/position", methods=["GET"])
     def get_my_position():
         """
-        Get the position of the device in the chain so that it knows if it's linking to the endpoint or to another
-        checkpoint
+        Get the position of the device in the chain so that it knows if it's linking to the last server layer or to another
+        intermediate server layer
         """
         global is_linkingend
         if server_url == "":
-            print("Endpoint reached!")
-            return {"next": "endpoint"}
+            print("Last layer reached!")
+            return {"next": "last_layer"}
         else:
             url = server_url + "/position"
             print("Uploading to %s" % url)
             response = requests.get(url).json()
-            if response["next"] == "endpoint":
-                print("Linking to endpoint...")
+            if response["next"] == "last_layer":
+                print("Linking to last layer...")
                 is_linkingend = True
             else:
-                print("Linking to another checkpoint...")
-            return {"next": "checkpoint"}
+                print("Linking to an intermediate layer...")
+            return {"next": "intermediate_layer"}
 
     @app.route("/split_layers", methods=["POST", "GET"])
     def get_split_layers():
@@ -161,7 +161,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         global split_layers
         split_layers = request.json["split_layers"]
         if server_url == "":  # If we have reached the end of the chain stop
-            print("Endpoint reached!")
+            print("Last layer reached!")
             return {"Outcome": "Success!"}
         else:  # Else send the list of the split points to the next device
             url = server_url + "/split_layers"
@@ -177,7 +177,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         global nextDev_times
         nextDev_times = {}
         if server_url == "":  # If we have reached the end of the chain stop
-            print("Endpoint reached!")
+            print("Last layer reached!")
             return {"Outcome": "Cached times cleared!"}
         else:  # Else proceed recursively till we reach the end
             url = server_url + "/next_iteration"
@@ -193,8 +193,8 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     def return_server_status():
         return "<h1>Operational</h1>"
 
-    @app.route("/endpoint", methods=["POST", "GET"])
-    def endpoint():
+    @app.route("/last_layer", methods=["POST", "GET"])
+    def last_layer():
         """
         Extract and run at inference the last submodel of the partition of a onnx model
         """
@@ -217,14 +217,14 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         # Split the model to obtain the third submodel
         if data["splitLayer"] == "NO_SPLIT":
             input_names = onnx_get_true_inputs(onnx_model)
-            onnx_model_file = "cache/endpoint_no_split.onnx"
+            onnx_model_file = "cache/last_no_split.onnx"
         else:
             input_names = [data["splitLayer"]]
             try:  # Try to find the index of the layer inside the list
                 input_layer_index = split_layers.index(data["splitLayer"])
-                onnx_model_file = "cache/endpoint_" + str(input_layer_index) + ".onnx"
+                onnx_model_file = "cache/last_" + str(input_layer_index) + ".onnx"
             except:  # Otherwise use the name of the split layer to cache the onnx model
-                onnx_model_file = "cache/endpoint_" + data["splitLayer"].replace("/", "-").replace(":", "_") + ".onnx"
+                onnx_model_file = "cache/last_" + data["splitLayer"].replace("/", "-").replace(":", "_") + ".onnx"
 
         output_names = end_names
 
@@ -242,8 +242,8 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         returnData["result"] = returnData["result"].tolist()
         return returnData
 
-    @app.route("/checkpoint", methods=["POST", "GET"])
-    def checkpoint():
+    @app.route("/intermediate_layer", methods=["POST", "GET"])
+    def intermediate_layer():
         """
         Extract and run at inference all the possible submodel extracted from a onnx model starting from a certain
         split point. Send the output of the runs to the next device and get the results.
@@ -306,10 +306,10 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                     # Compute the name of the file where we will export the submodel
                     if input_layer_index >= 0:
                         onnx_model_file = (
-                            "cache/checkpoint_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+                            "cache/intermediate_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
                         )
                     else:
-                        onnx_model_file = "cache/checkpoint_no_split_" + str(output_layer_index) + ".onnx"
+                        onnx_model_file = "cache/intermediate_no_split_" + str(output_layer_index) + ".onnx"
 
                     try:
                         # We use this simple trick to "fool" onnx_search_and_run_second_half
@@ -340,11 +340,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                             # Send the Intermediate Tensors to the server
                             print("Sending the intermediate tensors to the server...")
                             try:
-                                # Choose the correct url depending if we are linkging to the endpoint or to a second checkpoint
+                                # Choose the correct url depending if we are linkging to the last server layer or to a second intermediate layer
                                 if is_linkingend:
-                                    url = server_url + "/endpoint"
+                                    url = server_url + "/last_layer"
                                 else:
-                                    url = server_url + "/checkpoint"
+                                    url = server_url + "/intermediate_layer"
                                 response = requests.post(url, files=files).json()
 
                                 # Save the inference time of the submodel on the next device for future iterations
@@ -364,8 +364,8 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                                 else:
                                     logging.info(str(input_layer_index) + " to " + str(i) + ": THRESHOLD EXCEEDED")
                             except:
-                                print("...ENDPOINT FAILED!...")
-                                raise Exception("ENDPOINT FAILED")
+                                print("...LAST LAYER FAILED!...")
+                                raise Exception("LAST LAYER FAILED")
                         else:
                             response = nextDev_times[split_layers[i]]
                             # Save the results
@@ -389,7 +389,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             # Trivial case: we don't rely on the server
             print("##### Trivial case #####")
             output_names = end_names
-            onnx_model_file = "cache/checkpoint_" + str(input_layer_index) + "_no_split.onnx"
+            onnx_model_file = "cache/intermediate_" + str(input_layer_index) + "_no_split.onnx"
             returnData = onnx_extract_and_run_second_half(
                 onnx_file, input_names, output_names, onnx_model_file, data, None, EP_list, device
             )
@@ -420,7 +420,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         """
         global split_layers
         if server_url == "":  # If we have reached the end of the chain stop
-            print("Endpoint reached!")
+            print("Last layer reached!")
             return {"Outcome": "Success!"}
         else:  # Else compute the avgs for all the possible split layers
             # Extract the name of the files
