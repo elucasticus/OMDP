@@ -11,6 +11,8 @@ import os, shutil
 import click
 from onnx_helper import CsvHandler
 
+CSV_FILE_RESULTS = "singleLayerInfTimes.csv"
+CSV_FILE_RESULTS2 = "singleLayerInfTimes2.csv"
 
 def isNodeAnInitializer(onnx_model, node):
     """
@@ -214,18 +216,53 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             return {"Outcome": "Threshold exceeded"}
 
         print("###### Input layer: %s ######" % data["splitLayer"])
-        # Split the model to obtain the third submodel
+        # Split the model to obtain the third submodel and the single layer model 
         if data["splitLayer"] == "NO_SPLIT":
             input_names = onnx_get_true_inputs(onnx_model)
             onnx_model_file = "cache/last_no_split.onnx"
+            input_layer_index = -1
         else:
             input_names = [data["splitLayer"]]
-            try:  # Try to find the index of the layer inside the list
-                input_layer_index = split_layers.index(data["splitLayer"])
-                onnx_model_file = "cache/last_" + str(input_layer_index) + ".onnx"
-            except:  # Otherwise use the name of the split layer to cache the onnx model
-                onnx_model_file = "cache/last_" + data["splitLayer"].replace("/", "-").replace(":", "_") + ".onnx"
+            input_layer_index = split_layers.index(data["splitLayer"])
+            onnx_model_file = "cache/last_" + str(input_layer_index) + ".onnx"
 
+        # Extract single layer split and compute inference time
+        output_layer_index = input_layer_index + 1
+        if output_layer_index < len(split_layers):
+            output_names = [split_layers[output_layer_index]]
+            onnx_sl_model_file = "cache/last_" + str(input_layer_index) + "_" + str(output_layer_index) + ".onnx"
+        else:
+            output_names = end_names
+            onnx_sl_model_file = "cache/last_" + str(input_layer_index) + "_end.onnx"
+
+        if os.path.isfile(onnx_sl_model_file):
+            print("Single layer submodel already extracted!")
+        else:
+            onnx.utils.extract_model(onnx_file, onnx_sl_model_file, input_names, output_names)
+
+        # Compute the single layer inference time
+        slData = onnx_search_and_run_second_half(None, onnx_sl_model_file, data, None, EP_list, device)
+        with open(CSV_FILE_RESULTS2, "a", newline="") as inner_csvfile:
+            inner_fields = [
+                "SplitLayer",
+                "singleLayerInfTime"
+            ]
+            inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
+            if output_layer_index < len(split_layers):
+                inner_row = {
+                    "SplitLayer": split_layers[output_layer_index].replace("/", "-").replace(":", "_"),
+                    "singleLayerInfTime": slData["execTime2"]
+                }
+                logging.info(str(input_layer_index) + " to " + str(output_layer_index) + ": SINGLE LAYER PROFILED")
+            else:
+                inner_row = {
+                    "SplitLayer": "end",
+                    "singleLayerInfTime": slData["execTime2"]
+                }
+                logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
+            inner_writer.writerow(inner_row)
+
+        # Extract the third submodel
         output_names = end_names
 
         if os.path.isfile(onnx_model_file):
@@ -322,6 +359,21 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         except Exception as e:
                             print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
                             raise e
+                        
+                        # Save data about single layer profiling on this device in a separate .csv file
+                        if i == input_layer_index + 1:
+                            with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
+                                inner_fields = [
+                                    "SplitLayer",
+                                    "singleLayerInfTime"
+                                ]
+                                inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
+                                inner_row = {
+                                    "SplitLayer": name.replace("/", "-").replace(":", "_"),
+                                    "singleLayerInfTime": up_data["execTime2"]
+                                }
+                                inner_writer.writerow(inner_row)
+                                logging.info(str(input_layer_index) + " to " + str(i) + ": SINGLE LAYER PROFILED")
 
                         up_data["tensorLength"] = up_data["result"].size
                         np.save("input_check", up_data["result"])
@@ -393,6 +445,20 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             returnData = onnx_extract_and_run_second_half(
                 onnx_file, input_names, output_names, onnx_model_file, data, None, EP_list, device
             )
+
+            if input_layer_index == len(split_layers) - 1:
+                with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
+                    inner_fields = [
+                        "SplitLayer",
+                        "singleLayerInfTime"
+                    ]
+                    inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
+                    inner_row = {
+                        "SplitLayer": "end",
+                        "singleLayerInfTime": returnData["execTime2"]
+                    }
+                    inner_writer.writerow(inner_row)
+                    logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
 
             # Save the results
             row["SplitLayer"] = "NO_SPLIT"
