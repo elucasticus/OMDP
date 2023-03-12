@@ -14,6 +14,7 @@ from onnx_helper import CsvHandler
 CSV_FILE_RESULTS = "singleLayerInfTimes.csv"
 CSV_FILE_RESULTS2 = "singleLayerInfTimes2.csv"
 
+
 def isNodeAnInitializer(onnx_model, node):
     """
     Check if the node passed as argument is an initializer in the network.
@@ -174,14 +175,22 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     @app.route("/next_iteration", methods=["GET"])
     def clear_cached_times():
         """
-        Clear the eventual cached times and tell the next device to do so
+        Clear the eventual cached times, prepare the single layer .csv files and tell the next device to do so
         """
         global nextDev_times
         nextDev_times = {}
         if server_url == "":  # If we have reached the end of the chain stop
+            with open(CSV_FILE_RESULTS2, "a", newline="") as inner_csvfile:
+                inner_fields = ["SplitLayer", "singleLayerInfTime"]
+                inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
+                inner_writer.writeheader()
             print("Last layer reached!")
             return {"Outcome": "Cached times cleared!"}
         else:  # Else proceed recursively till we reach the end
+            with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
+                inner_fields = ["SplitLayer", "singleLayerInfTime"]
+                inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
+                inner_writer.writeheader()
             url = server_url + "/next_iteration"
             print("Uploading to %s" % url)
             response = requests.get(url).json()
@@ -216,7 +225,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             return {"Outcome": "Threshold exceeded"}
 
         print("###### Input layer: %s ######" % data["splitLayer"])
-        # Split the model to obtain the third submodel and the single layer model 
+        # Split the model to obtain the third submodel and the single layer model
         if data["splitLayer"] == "NO_SPLIT":
             input_names = onnx_get_true_inputs(onnx_model)
             onnx_model_file = "cache/last_no_split.onnx"
@@ -243,22 +252,16 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         # Compute the single layer inference time
         slData = onnx_search_and_run_second_half(None, onnx_sl_model_file, data, None, EP_list, device)
         with open(CSV_FILE_RESULTS2, "a", newline="") as inner_csvfile:
-            inner_fields = [
-                "SplitLayer",
-                "singleLayerInfTime"
-            ]
+            inner_fields = ["SplitLayer", "singleLayerInfTime"]
             inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
             if output_layer_index < len(split_layers):
                 inner_row = {
                     "SplitLayer": split_layers[output_layer_index].replace("/", "-").replace(":", "_"),
-                    "singleLayerInfTime": slData["execTime2"]
+                    "singleLayerInfTime": slData["execTime2"],
                 }
                 logging.info(str(input_layer_index) + " to " + str(output_layer_index) + ": SINGLE LAYER PROFILED")
             else:
-                inner_row = {
-                    "SplitLayer": "end",
-                    "singleLayerInfTime": slData["execTime2"]
-                }
+                inner_row = {"SplitLayer": "end", "singleLayerInfTime": slData["execTime2"]}
                 logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
             inner_writer.writerow(inner_row)
 
@@ -359,18 +362,15 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                         except Exception as e:
                             print("...CANNOT EXTRACT AND RUN THE SUBMODEL!...")
                             raise e
-                        
+
                         # Save data about single layer profiling on this device in a separate .csv file
                         if i == input_layer_index + 1:
                             with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
-                                inner_fields = [
-                                    "SplitLayer",
-                                    "singleLayerInfTime"
-                                ]
+                                inner_fields = ["SplitLayer", "singleLayerInfTime"]
                                 inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
                                 inner_row = {
                                     "SplitLayer": name.replace("/", "-").replace(":", "_"),
-                                    "singleLayerInfTime": up_data["execTime2"]
+                                    "singleLayerInfTime": up_data["execTime2"],
                                 }
                                 inner_writer.writerow(inner_row)
                                 logging.info(str(input_layer_index) + " to " + str(i) + ": SINGLE LAYER PROFILED")
@@ -448,15 +448,9 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
             if input_layer_index == len(split_layers) - 1:
                 with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
-                    inner_fields = [
-                        "SplitLayer",
-                        "singleLayerInfTime"
-                    ]
+                    inner_fields = ["SplitLayer", "singleLayerInfTime"]
                     inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
-                    inner_row = {
-                        "SplitLayer": "end",
-                        "singleLayerInfTime": returnData["execTime2"]
-                    }
+                    inner_row = {"SplitLayer": "end", "singleLayerInfTime": returnData["execTime2"]}
                     inner_writer.writerow(inner_row)
                     logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
 
