@@ -11,6 +11,7 @@ import os, shutil
 import click
 from onnx_helper import CsvHandler
 import pickle
+import onnx_tool
 
 CSV_FILE_RESULTS = "singleLayerInfTimes.csv"
 CSV_FILE_RESULTS2 = "singleLayerInfTimes2.csv"
@@ -218,7 +219,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
         # Receive the incoming data
         data = json.load(request.files["data"])
-        data["result"] = np.load(request.files["document"]).tolist()
+        data["result"] = np.load(request.files["document"])
 
         # Compute arrival time
         arrival_time = time.perf_counter()
@@ -297,7 +298,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
         # Receive the incoming data
         data = json.load(request.files["data"])
-        data["result"] = np.load(request.files["document"]).tolist()
+        data["result"] = np.load(request.files["document"])
 
         # Compute arrival time
         arrival_time = time.perf_counter()
