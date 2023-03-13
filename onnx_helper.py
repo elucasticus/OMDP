@@ -162,7 +162,7 @@ class PlotHandler:
         rows = int(n / columns + 1)
         gs00 = GridSpec(rows, columns)
 
-        fig = plt.figure(figsize=(int(20 / 3 * rows), 8))
+        fig = plt.figure(figsize=(20, int(8 / 3 * rows)))
         axs = []
         for i in range(rows):
             for j in range(columns):
