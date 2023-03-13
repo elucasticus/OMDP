@@ -57,7 +57,7 @@ class CsvHandler:
             for row in reader:
                 lines.append(row)
                 for field in row:
-                    if field == "1stInfTime":
+                    if field == "SplitLayer":
                         lines.remove(row)
         return lines
 

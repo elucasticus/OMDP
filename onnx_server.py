@@ -488,16 +488,27 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         At the end of all repetitions, generate the files with the average times
         """
         global split_layers
+        # Extract the name of the files
+        file_names = split_layers.copy()
+        for i in range(len(file_names)):
+            file_names[i] = file_names[i].replace("/", "-").replace(":", "_")
+        file_names.append("end")
         if server_url == "":  # If we have reached the end of the chain stop
+            # Compute single layer average inference times
+            handler = CsvHandler(CSV_FILE_RESULTS2)
+            handler.export_mean_values()
+            handler.reorder(file_names)
             print("Last layer reached!")
             return {"Outcome": "Success!"}
         else:  # Else compute the avgs for all the possible split layers
-            # Extract the name of the files
-            file_names = split_layers.copy()
-            for i in range(len(file_names)):
-                file_names[i] = file_names[i].replace("/", "-").replace(":", "_")
+            # Compute single layer average inference times
+            handler = CsvHandler(CSV_FILE_RESULTS2)
+            handler.export_mean_values()
+            handler.reorder(file_names)
             # Append NO_SPLIT
+            file_names.remove("end")
             file_names.append("NO_SPLIT")
+            # Compute first and second inference average inference times
             for i in range(len(file_names)):  # For every possible .csv file
                 csvfile = file_names[i] + ".csv"
                 if os.path.isfile(csvfile):  # If the file does exist
