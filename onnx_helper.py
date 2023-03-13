@@ -156,13 +156,13 @@ class PlotHandler:
             self.split_layers[i] = self.split_layers[i].replace("/", "-").replace(":", "_")
         self.split_layers.append("NO_SPLIT")
 
-    def generate_plot(self):
+    def generate_plot(self, ylim):
         n = len(self.split_layers)
         columns = 5
         rows = int(n / columns + 1)
         gs00 = GridSpec(rows, columns)
 
-        fig = plt.figure(figsize=(20, 8))
+        fig = plt.figure(figsize=(int(20 / 3 * rows), 8))
         axs = []
         for i in range(rows):
             for j in range(columns):
@@ -235,7 +235,7 @@ class PlotHandler:
                     top=False,  # ticks along the top edge are off
                     labelbottom=False,
                 )  # labels along the bottom edge are off
-                axs[row].set_ylim([0, 0.150])
+                axs[row].set_ylim([0, ylim])
                 axs[row].set_title("Splitting point odroid-laptop: %d" % row, fontsize=10)
                 if row % columns == 0:
                     axs[row].set_ylabel("Time [s]")

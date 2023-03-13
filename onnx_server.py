@@ -10,9 +10,11 @@ import csv
 import os, shutil
 import click
 from onnx_helper import CsvHandler
+import pickle
 
 CSV_FILE_RESULTS = "singleLayerInfTimes.csv"
 CSV_FILE_RESULTS2 = "singleLayerInfTimes2.csv"
+PICKLE_FILE = "split_layers"
 
 
 def isNodeAnInitializer(onnx_model, node):
@@ -132,7 +134,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
     @app.before_request
     def before_request():
         global request_start_time
-        request_start_time = time.time()
+        request_start_time = time.perf_counter()
 
     @app.route("/position", methods=["GET"])
     def get_my_position():
@@ -162,7 +164,10 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         device in the chain
         """
         global split_layers
+        # Save the list with the split layers in a pickle file
         split_layers = request.json["split_layers"]
+        with open(PICKLE_FILE, "wb") as fp:
+            pickle.dump(split_layers, fp)
         if server_url == "":  # If we have reached the end of the chain stop
             print("Last layer reached!")
             return {"Outcome": "Success!"}
@@ -216,7 +221,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         data["result"] = np.load(request.files["document"]).tolist()
 
         # Compute arrival time
-        arrival_time = time.time()
+        arrival_time = time.perf_counter()
 
         # Compute uploading time
         uploading_time = arrival_time - request_start_time
@@ -295,7 +300,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
         data["result"] = np.load(request.files["document"]).tolist()
 
         # Compute arrival time
-        arrival_time = time.time()
+        arrival_time = time.perf_counter()
 
         # Extract the input layer and its index into the list of possible splits
         if data["splitLayer"] == "NO_SPLIT":
@@ -328,7 +333,7 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                 "tensorLength": 0,
             }
 
-            if arrival_time - data["departure_time"] < threshold:  # If uploading time is too big we skip the profiling
+            if arrival_time - request_start_time < threshold:  # If uploading time is too big we skip the profiling
                 for i in range(input_layer_index + 1, len(split_layers)):
                     # If the uploading time is too big, we skip this iteration
                     if split_layers[i] in nextDev_times:
