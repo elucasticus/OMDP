@@ -2,6 +2,7 @@ from flask import Flask, request
 import requests
 import time
 from onnx_second_inference_flask import onnx_search_and_run_second_half, onnx_extract_and_run_second_half
+from onnx_first_inference import onnx_run_first_half
 import numpy as np
 import json
 import onnx
@@ -256,18 +257,18 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             onnx.utils.extract_model(onnx_file, onnx_sl_model_file, input_names, output_names)
 
         # Compute the single layer inference time
-        slData = onnx_search_and_run_second_half(None, onnx_sl_model_file, data, None, EP_list, device)
+        slData, _ = onnx_run_first_half(onnx_sl_model_file, data["result"], True, EP_list, device, True, None, True)
         with open(CSV_FILE_RESULTS2, "a", newline="") as inner_csvfile:
             inner_fields = ["SplitLayer", "singleLayerInfTime"]
             inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
             if output_layer_index < len(split_layers):
                 inner_row = {
                     "SplitLayer": split_layers[output_layer_index].replace("/", "-").replace(":", "_"),
-                    "singleLayerInfTime": slData["execTime2"],
+                    "singleLayerInfTime": slData["execTime1"],
                 }
                 logging.info(str(input_layer_index) + " to " + str(output_layer_index) + ": SINGLE LAYER PROFILED")
             else:
-                inner_row = {"SplitLayer": "end", "singleLayerInfTime": slData["execTime2"]}
+                inner_row = {"SplitLayer": "end", "singleLayerInfTime": slData["execTime1"]}
                 logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
             inner_writer.writerow(inner_row)
 
@@ -371,12 +372,13 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
                         # Save data about single layer profiling on this device in a separate .csv file
                         if i == input_layer_index + 1:
+                            slData, _ = onnx_run_first_half(onnx_model_file, data["result"], True, EP_list, device, True, None, True)
                             with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
                                 inner_fields = ["SplitLayer", "singleLayerInfTime"]
                                 inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
                                 inner_row = {
                                     "SplitLayer": name.replace("/", "-").replace(":", "_"),
-                                    "singleLayerInfTime": up_data["execTime2"],
+                                    "singleLayerInfTime": slData["execTime1"],
                                 }
                                 inner_writer.writerow(inner_row)
                                 logging.info(str(input_layer_index) + " to " + str(i) + ": SINGLE LAYER PROFILED")
@@ -453,10 +455,11 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             )
 
             if input_layer_index == len(split_layers) - 1:
+                slData, _ = onnx_run_first_half(onnx_model_file, data["result"], True, EP_list, device, True, None, True)
                 with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
                     inner_fields = ["SplitLayer", "singleLayerInfTime"]
                     inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
-                    inner_row = {"SplitLayer": "end", "singleLayerInfTime": returnData["execTime2"]}
+                    inner_row = {"SplitLayer": "end", "singleLayerInfTime": slData["execTime1"]}
                     inner_writer.writerow(inner_row)
                     logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
 

@@ -54,13 +54,6 @@ def onnx_search_and_run_second_half(onnx_models_path, onnx_model_file, data, res
   else:
     onnx_file = onnx_model_file
 
-  #No split case --> Get the full model instead of a splitted part
-  if isNoSplitCase or isProfilingCase:
-    if onnx_models_path == None:
-      onnx_file = data["fullModelFile"]
-    else:
-      onnx_file = onnx_models_path + "/" + data["fullModelFile"]
-
   #Get the input and output of the model
   print("onnx_file used: " + onnx_file)
   onnx_model = onnx.load(onnx_file)
