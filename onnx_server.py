@@ -59,6 +59,25 @@ def onnx_get_true_inputs(onnx_model):
     return input_names
 
 
+def onnx_profile_single_layer(results_file, split_layer, file, inputData, EP_list, device):
+    """
+    Compute single layer inference time and save the result
+
+    :param results_file: the file where to save the results
+    :param split_layer: the name of the split layer to put in the result file
+    :param file: the onnx file used for inference
+    :param inputData: a numpy array with the input of the onnx file
+    :param EP_list: the Execution Provider used at inference (CPU (default) | GPU | OpenVINO | TensorRT | ACL)
+    :param device: specifies the device type such as 'CPU_FP32', 'GPU_FP32', 'GPU_FP16', etc..
+    """
+    slData, _ = onnx_run_first_half(file, inputData, True, EP_list, device, True, None, True)
+    with open(results_file, "a", newline="") as inner_csvfile:
+        inner_fields = ["SplitLayer", "singleLayerInfTime"]
+        inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
+        inner_row = {"SplitLayer": split_layer, "singleLayerInfTime": slData["execTime1"]}
+        inner_writer.writerow(inner_row)
+
+
 @click.command()
 @click.option("--onnx_file", help="Select the ONNX file to use for the inference")
 @click.option(
@@ -257,20 +276,15 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             onnx.utils.extract_model(onnx_file, onnx_sl_model_file, input_names, output_names)
 
         # Compute the single layer inference time
-        slData, _ = onnx_run_first_half(onnx_sl_model_file, data["result"], True, EP_list, device, True, None, True)
-        with open(CSV_FILE_RESULTS2, "a", newline="") as inner_csvfile:
-            inner_fields = ["SplitLayer", "singleLayerInfTime"]
-            inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
-            if output_layer_index < len(split_layers):
-                inner_row = {
-                    "SplitLayer": split_layers[output_layer_index].replace("/", "-").replace(":", "_"),
-                    "singleLayerInfTime": slData["execTime1"],
-                }
-                logging.info(str(input_layer_index) + " to " + str(output_layer_index) + ": SINGLE LAYER PROFILED")
-            else:
-                inner_row = {"SplitLayer": "end", "singleLayerInfTime": slData["execTime1"]}
-                logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
-            inner_writer.writerow(inner_row)
+        if output_layer_index < len(split_layers):
+            name = split_layers[output_layer_index].replace("/", "-").replace(":", "_")
+        else:
+            name = "end"
+        onnx_profile_single_layer(CSV_FILE_RESULTS2, name, onnx_sl_model_file, data["result"], EP_list, device)
+        if output_layer_index < len(split_layers):
+            logging.info(str(input_layer_index) + " to " + str(output_layer_index) + ": SINGLE LAYER PROFILED")
+        else:
+            logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
 
         # Extract the third submodel
         output_names = end_names
@@ -372,16 +386,15 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
 
                         # Save data about single layer profiling on this device in a separate .csv file
                         if i == input_layer_index + 1:
-                            slData, _ = onnx_run_first_half(onnx_model_file, data["result"], True, EP_list, device, True, None, True)
-                            with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
-                                inner_fields = ["SplitLayer", "singleLayerInfTime"]
-                                inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
-                                inner_row = {
-                                    "SplitLayer": name.replace("/", "-").replace(":", "_"),
-                                    "singleLayerInfTime": slData["execTime1"],
-                                }
-                                inner_writer.writerow(inner_row)
-                                logging.info(str(input_layer_index) + " to " + str(i) + ": SINGLE LAYER PROFILED")
+                            onnx_profile_single_layer(
+                                CSV_FILE_RESULTS,
+                                name.replace("/", "-").replace(":", "_"),
+                                onnx_model_file,
+                                data["result"],
+                                EP_list,
+                                device,
+                            )
+                            logging.info(str(input_layer_index) + " to " + str(i) + ": SINGLE LAYER PROFILED")
 
                         up_data["tensorLength"] = up_data["result"].size
                         np.save("input_check", up_data["result"])
@@ -411,15 +424,6 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                                 nextDev_times[split_layers[i]] = response
 
                                 if response["Outcome"] != "Threshold exceeded":
-                                    # Save the results
-                                    row["SplitLayer"] = split_layers[i].replace("/", "-").replace(":", "_")
-                                    row["1stInfTime"] = response["execTime1"]
-                                    row["2ndInfTime"] = response["execTime2"]
-                                    row["networkingTime"] = response["networkingTime"]
-                                    # row["tensorSaveTime"] = response["tensorSaveTime"]
-                                    row["tensorLoadTime"] = response["tensorLoadTime"]
-                                    row["tensorLength"] = response["tensorLength"]
-                                    writer.writerow(row)
                                     logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
                                 else:
                                     logging.info(str(input_layer_index) + " to " + str(i) + ": THRESHOLD EXCEEDED")
@@ -428,17 +432,18 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
                                 raise Exception("LAST LAYER FAILED")
                         else:
                             response = nextDev_times[split_layers[i]]
-                            # Save the results
-                            row["SplitLayer"] = split_layers[i].replace("/", "-").replace(":", "_")
-                            row["1stInfTime"] = up_data["execTime1"]
-                            row["2ndInfTime"] = response["execTime2"]
-                            row["networkingTime"] = response["networkingTime"]
-                            # row["tensorSaveTime"] = response["tensorSaveTime"]
-                            row["tensorLoadTime"] = response["tensorLoadTime"]
-                            row["tensorLength"] = response["tensorLength"]
-                            writer.writerow(row)
-                            logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
 
+                        # Save the results
+                        row["SplitLayer"] = split_layers[i].replace("/", "-").replace(":", "_")
+                        row["1stInfTime"] = up_data["execTime1"]
+                        row["2ndInfTime"] = response["execTime2"]
+                        row["networkingTime"] = response["networkingTime"]
+                        # row["tensorSaveTime"] = response["tensorSaveTime"]
+                        row["tensorLoadTime"] = response["tensorLoadTime"]
+                        row["tensorLength"] = response["tensorLength"]
+                        writer.writerow(row)
+
+                        logging.info(str(input_layer_index) + " to " + str(i) + ": OK")
                     except Exception as e:
                         error_message = str(e)
                         print(error_message)
@@ -455,13 +460,8 @@ def run(onnx_file, server_url, log_file, EP_list, device, threshold):
             )
 
             if input_layer_index == len(split_layers) - 1:
-                slData, _ = onnx_run_first_half(onnx_model_file, data["result"], True, EP_list, device, True, None, True)
-                with open(CSV_FILE_RESULTS, "a", newline="") as inner_csvfile:
-                    inner_fields = ["SplitLayer", "singleLayerInfTime"]
-                    inner_writer = csv.DictWriter(inner_csvfile, fieldnames=inner_fields)
-                    inner_row = {"SplitLayer": "end", "singleLayerInfTime": slData["execTime1"]}
-                    inner_writer.writerow(inner_row)
-                    logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
+                onnx_profile_single_layer(CSV_FILE_RESULTS, "end", onnx_model_file, data["result"], EP_list, device)
+                logging.info(str(input_layer_index) + " to end: SINGLE LAYER PROFILED")
 
             # Save the results
             row["SplitLayer"] = "NO_SPLIT"
